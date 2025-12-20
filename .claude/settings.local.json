@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__exa__get_code_context_exa",
+      "Bash(bun install:*)",
+      "mcp__package-search__package_search_grep",
+      "Skill(frontend-design)",
+      "Bash(bun run build:*)",
+      "Bash(chmod:*)",
+      "Bash(ASSISTANT_NAME=Ghost /Users/saint/Dev/claude_control_panel/scripts/setup.sh:*)",
+      "Bash(bunx tsc:*)",
+      "Skill(pre-compact-snapshot)",
+      "Bash(ls:*)",
+      "Skill(feature-tracker)",
+      "Skill(codebase-mapper)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "WebSearch",
+      "Bash(bun add:*)",
+      "Bash(xargs kill:*)",
+      "Skill(frontend-design:frontend-design)",
+      "Bash(bunx create-vite:*)",
+      "Bash(bun create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

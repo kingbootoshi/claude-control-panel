@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+web/node_modules/
+
+# Build outputs
+dist/
+web/dist/
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Bun
+bun.lockb
+
+# State (don't commit session data)
+# Note: The actual workspace is at ~/claude-workspace, not in this repo
