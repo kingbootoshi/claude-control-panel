@@ -3,6 +3,7 @@ import { ToolBlock } from './ToolBlock';
 import { useState } from 'react';
 import { ChevronRightIcon, ChevronDownIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface MessageBlockProps {
   block: TerminalBlock;
@@ -44,7 +45,7 @@ export function MessageBlock({ block }: MessageBlockProps) {
     case 'text_streaming':
       return (
         <div className="terminal-line output markdown-content">
-          <ReactMarkdown>{block.content || ''}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || ''}</ReactMarkdown>
           {block.isStreaming && <span className="cursor-blink">|</span>}
         </div>
       );

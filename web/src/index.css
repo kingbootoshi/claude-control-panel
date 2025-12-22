@@ -587,3 +587,27 @@ body {
   border-top: 1px solid var(--void-border);
   margin: 1em 0;
 }
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  font-size: 0.9em;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid var(--void-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: var(--void-surface);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.markdown-content tr:nth-child(even) {
+  background: var(--void-surface);
+}
