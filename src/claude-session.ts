@@ -9,11 +9,18 @@ import { logger } from "./utils/logger";
 const log = logger.session;
 
 export interface StreamEvent {
-  type: "text" | "tool_use" | "tool_result" | "thinking" | "done" | "error" | "init";
+  type: "text_delta" | "text_complete" | "tool_start" | "tool_result" | "thinking" | "turn_complete" | "error" | "init";
   content?: string;
-  tool?: string;
+  messageId?: string;
+  toolUseId?: string;
+  toolName?: string;
   input?: unknown;
+  result?: string;
+  isError?: boolean;
   sessionId?: string;
+  tools?: string[];
+  durationMs?: number;
+  costUsd?: number;
 }
 
 export class ClaudeSession extends EventEmitter {
@@ -21,6 +28,8 @@ export class ClaudeSession extends EventEmitter {
   private isRunning = false;
   private sessionId: string | null = null;
   private sessionFile: string;
+  private currentMessageId: string | null = null;
+  private currentTextBlockIndex: number = -1;
 
   constructor() {
     super();
@@ -92,21 +101,39 @@ export class ClaudeSession extends EventEmitter {
         if (message.subtype === "init") {
           this.sessionId = message.session_id;
           await this.saveSessionId(message.session_id);
-          this.emit("event", { type: "init", sessionId: message.session_id } as StreamEvent);
+          this.emit("event", {
+            type: "init",
+            sessionId: message.session_id,
+            tools: message.tools,
+          } as StreamEvent);
           log.info({ sessionId: message.session_id, tools: message.tools }, "Session initialized");
         }
         break;
 
       case "assistant":
+        // Generate a new message ID for this assistant turn
+        this.currentMessageId = crypto.randomUUID();
+        this.currentTextBlockIndex = -1;
+
         for (const block of message.message.content) {
           if (block.type === "text") {
+            // Complete text block - emit as complete
+            this.emit("event", {
+              type: "text_delta",
+              content: block.text,
+              messageId: this.currentMessageId,
+            } as StreamEvent);
+            this.emit("event", {
+              type: "text_complete",
+              messageId: this.currentMessageId,
+            } as StreamEvent);
             log.debug({ chars: block.text.length }, "Received text");
-            this.emit("event", { type: "text", content: block.text } as StreamEvent);
           } else if (block.type === "tool_use") {
             log.info({ tool: block.name }, "Tool invoked");
             this.emit("event", {
-              type: "tool_use",
-              tool: block.name,
+              type: "tool_start",
+              toolUseId: block.id,
+              toolName: block.name,
               input: block.input,
             } as StreamEvent);
           }
@@ -114,17 +141,39 @@ export class ClaudeSession extends EventEmitter {
         break;
 
       case "stream_event": {
-        // Handle partial streaming messages (SDKPartialAssistantMessage)
+        // Handle partial streaming messages
         const streamEvent = message.event;
-        if (
+
+        if (streamEvent.type === "content_block_start") {
+          // New content block starting
+          this.currentTextBlockIndex++;
+          if (!this.currentMessageId) {
+            this.currentMessageId = crypto.randomUUID();
+          }
+        } else if (
           streamEvent.type === "content_block_delta" &&
-          "delta" in streamEvent &&
-          streamEvent.delta.type === "text_delta"
+          "delta" in streamEvent
         ) {
-          this.emit("event", {
-            type: "text",
-            content: streamEvent.delta.text,
-          } as StreamEvent);
+          if (streamEvent.delta.type === "text_delta") {
+            this.emit("event", {
+              type: "text_delta",
+              content: streamEvent.delta.text,
+              messageId: this.currentMessageId || crypto.randomUUID(),
+            } as StreamEvent);
+          } else if (streamEvent.delta.type === "thinking_delta" && "thinking" in streamEvent.delta) {
+            this.emit("event", {
+              type: "thinking",
+              content: (streamEvent.delta as { thinking: string }).thinking,
+            } as StreamEvent);
+          }
+        } else if (streamEvent.type === "content_block_stop") {
+          // Content block finished
+          if (this.currentMessageId) {
+            this.emit("event", {
+              type: "text_complete",
+              messageId: this.currentMessageId,
+            } as StreamEvent);
+          }
         }
         break;
       }
@@ -133,21 +182,30 @@ export class ClaudeSession extends EventEmitter {
         // Tool results come back as user messages
         for (const block of message.message.content) {
           if (typeof block === "object" && block.type === "tool_result") {
+            const resultContent = typeof block.content === "string"
+              ? block.content
+              : JSON.stringify(block.content);
+
             this.emit("event", {
               type: "tool_result",
-              tool: block.tool_use_id,
-              content:
-                typeof block.content === "string"
-                  ? block.content
-                  : JSON.stringify(block.content),
+              toolUseId: block.tool_use_id,
+              result: resultContent,
+              isError: block.is_error,
             } as StreamEvent);
           }
         }
         break;
 
       case "result":
-        this.emit("event", { type: "done" } as StreamEvent);
-        log.info({ turns: message.num_turns, cost: message.total_cost_usd }, "Query completed");
+        this.emit("event", {
+          type: "turn_complete",
+          durationMs: message.duration_ms,
+          costUsd: message.cost_usd,
+        } as StreamEvent);
+        log.info({ turns: message.num_turns, cost: message.cost_usd }, "Query completed");
+        // Reset message tracking
+        this.currentMessageId = null;
+        this.currentTextBlockIndex = -1;
         break;
     }
   }

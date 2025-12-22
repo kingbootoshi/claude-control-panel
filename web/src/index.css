@@ -10,8 +10,8 @@
   --void-surface: #0f1012;
   --void-elevated: #151719;
   --void-border: #1e2024;
-  --teal: #14b8a6;
-  --teal-dim: #0d9488;
+  --accent: #f59e0b;
+  --accent-dim: #d97706;
   --amber: #f59e0b;
   --amber-dim: #92400e;
   --red: #ef4444;
@@ -117,7 +117,7 @@ body {
 }
 
 .sidebar-item.active {
-  color: var(--teal);
+  color: var(--accent);
 }
 
 .sidebar-item .status-dot {
@@ -128,8 +128,8 @@ body {
 }
 
 .sidebar-item .status-dot.online {
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
 }
 
 /* Main area */
@@ -170,7 +170,7 @@ body {
 
 .tab.active {
   background: var(--void-elevated);
-  color: var(--teal);
+  color: var(--accent);
 }
 
 .tab-close {
@@ -198,7 +198,7 @@ body {
 
 .new-tab-btn:hover {
   background: var(--void-elevated);
-  color: var(--teal);
+  color: var(--accent);
 }
 
 .tab-bar-hint {
@@ -227,46 +227,9 @@ body {
   background: var(--void-surface);
 }
 
-.traffic-lights {
-  display: flex;
-  gap: 6px;
-  margin-right: 12px;
-}
-
-.traffic-light {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.traffic-light.red { background: var(--red); }
-.traffic-light.yellow { background: var(--yellow); }
-.traffic-light.green { background: var(--green); }
-
 .terminal-title {
-  color: var(--teal);
+  color: var(--accent);
   font-weight: 500;
-}
-
-.terminal-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
-
-.terminal-action {
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--teal);
-  color: var(--teal);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.terminal-action:hover {
-  background: var(--teal);
-  color: var(--void-deep);
 }
 
 /* Terminal output */
@@ -282,7 +245,7 @@ body {
 }
 
 .terminal-line.command {
-  color: var(--teal);
+  color: var(--accent);
 }
 
 .terminal-line.output {
@@ -315,13 +278,15 @@ body {
 
 .terminal-input-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .terminal-prompt {
-  color: var(--teal);
+  color: var(--accent);
   font-weight: 500;
+  align-self: flex-start;
+  padding-top: 4px;
 }
 
 .terminal-input {
@@ -332,7 +297,10 @@ body {
   font-family: inherit;
   font-size: inherit;
   outline: none;
-  caret-color: var(--teal);
+  caret-color: var(--accent);
+  resize: none;
+  min-height: 48px;
+  line-height: 1.5;
 }
 
 .terminal-input::placeholder {
@@ -392,4 +360,141 @@ body {
   .terminal-input-area {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
+}
+
+/* Tool blocks */
+.tool-block {
+  margin: 8px 0;
+  border: 1px solid var(--void-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tool-block.error {
+  border-color: var(--red);
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--void-surface);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tool-header:hover {
+  background: var(--void-elevated);
+}
+
+.tool-icon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+
+.tool-block.error .tool-icon {
+  color: var(--red);
+}
+
+.tool-name {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.tool-toggle {
+  margin-left: auto;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+}
+
+.tool-details {
+  padding: 12px;
+  background: var(--void-deep);
+  border-top: 1px solid var(--void-border);
+}
+
+.tool-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tool-details pre {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tool-input + .tool-output {
+  margin-top: 12px;
+}
+
+/* Thinking blocks */
+.thinking-block {
+  margin: 8px 0;
+  border-left: 2px solid var(--text-muted);
+  padding-left: 12px;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-style: italic;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.thinking-header:hover {
+  color: var(--text);
+}
+
+.thinking-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.thinking-content {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+/* Spinning animation for loading icon */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Command prompt in message blocks */
+.terminal-line.command .prompt {
+  color: var(--accent);
+  margin-right: 8px;
+}
+
+/* Cursor for streaming text */
+.cursor-blink {
+  color: var(--accent);
+  animation: blink 1s step-end infinite;
+}
+
+/* Terminal error in header */
+.terminal-error {
+  margin-left: auto;
+  color: var(--red);
+  font-size: 12px;
 }

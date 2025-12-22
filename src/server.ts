@@ -10,26 +10,121 @@ const log = logger.server;
 
 interface ClientMessage {
   type: "user_message" | "ping";
+  agentId?: string;
   content?: string;
 }
 
 interface ServerMessage {
-  type: "text" | "tool_use" | "tool_result" | "thinking" | "done" | "error" | "status" | "pong" | "init";
+  type: string;
+  agentId: string;
+  timestamp: string;
+  // Varying fields based on type
   content?: string;
-  tool?: string;
+  messageId?: string;
+  toolUseId?: string;
+  toolName?: string;
   input?: unknown;
+  result?: string;
+  isError?: boolean;
   sessionId?: string;
-  status?: {
-    connected: boolean;
+  tools?: string[];
+  durationMs?: number;
+  costUsd?: number;
+  connected?: boolean;
+  agents?: Array<{
+    id: string;
+    name: string;
     sessionId: string | null;
-    assistantName: string;
+    status: string;
+  }>;
+}
+
+function mapEventToMessage(event: StreamEvent, agentId: string): ServerMessage {
+  const base = {
+    agentId,
+    timestamp: new Date().toISOString(),
   };
+
+  switch (event.type) {
+    case "text_delta":
+      return {
+        ...base,
+        type: "text_delta",
+        content: event.content,
+        messageId: event.messageId,
+      };
+
+    case "text_complete":
+      return {
+        ...base,
+        type: "text_complete",
+        messageId: event.messageId,
+      };
+
+    case "tool_start":
+      return {
+        ...base,
+        type: "tool_start",
+        toolUseId: event.toolUseId,
+        toolName: event.toolName,
+        input: event.input,
+      };
+
+    case "tool_result":
+      return {
+        ...base,
+        type: "tool_result",
+        toolUseId: event.toolUseId,
+        result: event.result,
+        isError: event.isError,
+      };
+
+    case "thinking":
+      return {
+        ...base,
+        type: "thinking",
+        content: event.content,
+      };
+
+    case "turn_complete":
+      return {
+        ...base,
+        type: "turn_complete",
+        durationMs: event.durationMs,
+        costUsd: event.costUsd,
+      };
+
+    case "error":
+      return {
+        ...base,
+        type: "error",
+        content: event.content,
+      };
+
+    case "init":
+      return {
+        ...base,
+        type: "init",
+        sessionId: event.sessionId,
+        tools: event.tools,
+      };
+
+    default:
+      return {
+        ...base,
+        type: event.type,
+        content: event.content,
+      };
+  }
 }
 
 export function createHttpServer(session: ClaudeSession): HttpServer {
   const app: Express = express();
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
+
+  // Default agent ID (single agent for now)
+  const defaultAgentId = "ghost";
 
   // Middleware
   app.use(express.json());
@@ -54,7 +149,6 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
     res.json({
       assistantName: config.assistantName,
       sessionId: session.getSessionId(),
-      // Note: Messages are managed by the Agent SDK, not stored locally
     });
   });
 
@@ -70,24 +164,24 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
     // Send initial status
     const statusMessage: ServerMessage = {
       type: "status",
-      status: {
-        connected: true,
-        sessionId: session.getSessionId(),
-        assistantName: config.assistantName,
-      },
+      agentId: defaultAgentId,
+      timestamp: new Date().toISOString(),
+      connected: true,
+      agents: [
+        {
+          id: defaultAgentId,
+          name: config.assistantName,
+          sessionId: session.getSessionId(),
+          status: "online",
+        },
+      ],
     };
     ws.send(JSON.stringify(statusMessage));
 
     // Subscribe to session events
     const eventHandler = (event: StreamEvent) => {
       if (ws.readyState === WebSocket.OPEN) {
-        const message: ServerMessage = {
-          type: event.type,
-          content: event.content,
-          tool: event.tool,
-          input: event.input,
-          sessionId: event.sessionId,
-        };
+        const message = mapEventToMessage(event, defaultAgentId);
         ws.send(JSON.stringify(message));
       }
     };
@@ -102,13 +196,17 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
         switch (message.type) {
           case "user_message":
             if (message.content && message.content.trim()) {
-              log.info({ chars: message.content.length }, "User message received");
+              log.info({ chars: message.content.length, agentId: message.agentId }, "User message received");
               await session.sendMessage(message.content);
             }
             break;
 
           case "ping":
-            ws.send(JSON.stringify({ type: "pong" } as ServerMessage));
+            ws.send(JSON.stringify({
+              type: "pong",
+              agentId: defaultAgentId,
+              timestamp: new Date().toISOString(),
+            }));
             break;
 
           default:
@@ -119,8 +217,10 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
         ws.send(
           JSON.stringify({
             type: "error",
+            agentId: defaultAgentId,
+            timestamp: new Date().toISOString(),
             content: "Failed to process message",
-          } as ServerMessage)
+          })
         );
       }
     });
