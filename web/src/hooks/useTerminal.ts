@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 import type { TerminalBlock } from '../types/ui';
-import type { ServerMessage } from '../types/messages';
+import type { ServerMessage, Attachment } from '../types/messages';
 
 interface UseTerminalReturn {
   blocks: TerminalBlock[];
-  addUserCommand: (agentId: string, content: string) => void;
+  addUserCommand: (agentId: string, content: string, attachments?: Attachment[]) => void;
   handleServerMessage: (message: ServerMessage) => void;
   clearBlocks: (agentId: string) => void;
 }
@@ -18,6 +18,9 @@ export function useTerminal(): UseTerminalReturn {
   // Track tool blocks by toolUseId
   const toolBlocksRef = useRef<Map<string, string>>(new Map());
 
+  // Track session ID to avoid init spam
+  const currentSessionIdRef = useRef<string | null>(null);
+
   const addBlock = useCallback((block: Omit<TerminalBlock, 'id' | 'timestamp'>) => {
     const id = crypto.randomUUID();
     setBlocks(prev => [...prev, { ...block, id, timestamp: Date.now() }]);
@@ -30,11 +33,17 @@ export function useTerminal(): UseTerminalReturn {
     ));
   }, []);
 
-  const addUserCommand = useCallback((agentId: string, content: string) => {
+  const addUserCommand = useCallback((agentId: string, content: string, attachments?: Attachment[]) => {
     addBlock({
       type: 'user_command',
       agentId,
       content,
+      attachments: attachments?.map(a => ({
+        type: a.type,
+        name: a.name,
+        data: a.data,
+        mimeType: a.mimeType,
+      })),
     });
   }, [addBlock]);
 
@@ -128,16 +137,37 @@ export function useTerminal(): UseTerminalReturn {
       }
 
       case 'init': {
-        addBlock({
-          type: 'system',
-          agentId,
-          content: `Session initialized: ${message.sessionId.slice(0, 8)}...`,
-        });
+        // Only show init message when session ID actually changes
+        if (message.sessionId !== currentSessionIdRef.current) {
+          currentSessionIdRef.current = message.sessionId;
+          addBlock({
+            type: 'system',
+            agentId,
+            content: `Session initialized: ${message.sessionId.slice(0, 8)}...`,
+          });
+        }
         break;
       }
 
       case 'turn_complete': {
         // Could add a subtle divider or stats display
+        break;
+      }
+
+      case 'history': {
+        // Replace blocks with history from server
+        setBlocks(message.blocks);
+        // Extract session ID from the last init block if present
+        const initBlocks = message.blocks.filter((b: { type: string; content?: string }) =>
+          b.type === 'system' && b.content?.includes('Session initialized')
+        );
+        const lastInit = initBlocks[initBlocks.length - 1];
+        if (lastInit?.content) {
+          const match = lastInit.content.match(/Session initialized: ([a-f0-9]+)/);
+          if (match) {
+            currentSessionIdRef.current = match[1];
+          }
+        }
         break;
       }
     }

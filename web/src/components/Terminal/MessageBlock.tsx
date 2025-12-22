@@ -1,7 +1,7 @@
 import type { TerminalBlock } from '../../types/ui';
 import { ToolBlock } from './ToolBlock';
 import { useState } from 'react';
-import { ChevronRightIcon, ChevronDownIcon } from '../Icons';
+import { ChevronRightIcon, ChevronDownIcon, FileIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -38,6 +38,24 @@ export function MessageBlock({ block }: MessageBlockProps) {
       return (
         <div className="terminal-line command">
           <span className="prompt">$</span> {block.content}
+          {block.attachments && block.attachments.length > 0 && (
+            <div className="attachment-grid">
+              {block.attachments.map((att, i) =>
+                att.type === 'image' && att.data ? (
+                  <img
+                    key={i}
+                    src={`data:${att.mimeType};base64,${att.data}`}
+                    alt={att.name}
+                  />
+                ) : (
+                  <div key={i} className="file-attachment">
+                    <FileIcon />
+                    <span>{att.name}</span>
+                  </div>
+                )
+              )}
+            </div>
+          )}
         </div>
       );
 

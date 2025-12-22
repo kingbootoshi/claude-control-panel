@@ -2,10 +2,18 @@
 // Client → Server Messages
 // ============================================
 
+export interface Attachment {
+  type: 'image' | 'file';
+  name: string;
+  data: string;      // base64
+  mimeType: string;
+}
+
 export interface UserMessagePayload {
   type: 'user_message';
   agentId: string;
   content: string;
+  attachments?: Attachment[];
 }
 
 export interface PingPayload {
@@ -87,6 +95,12 @@ export interface PongMessage {
   type: 'pong';
 }
 
+export interface HistoryMessage {
+  type: 'history';
+  agentId: string;
+  blocks: import('./ui').TerminalBlock[];
+}
+
 export type ServerMessage =
   | InitMessage
   | TextDeltaMessage
@@ -97,4 +111,5 @@ export type ServerMessage =
   | TurnCompleteMessage
   | ErrorMessage
   | StatusMessage
-  | PongMessage;
+  | PongMessage
+  | HistoryMessage;

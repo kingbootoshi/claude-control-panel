@@ -1,11 +1,12 @@
 import type { TerminalBlock } from '../../types/ui';
+import type { Attachment } from '../../types/messages';
 import { TerminalOutput } from './TerminalOutput';
 import { TerminalInput } from './TerminalInput';
 
 interface TerminalProps {
   agentName: string;
   blocks: TerminalBlock[];
-  onSubmit: (content: string) => void;
+  onSubmit: (content: string, attachments?: Attachment[]) => void;
   connected: boolean;
   connectionError?: string | null;
 }

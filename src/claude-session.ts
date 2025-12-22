@@ -8,6 +8,20 @@ import { logger } from "./utils/logger";
 
 const log = logger.session;
 
+// Content block types for multimodal messages
+export type TextContent = { type: "text"; text: string };
+export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+export type ImageContent = {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: ImageMediaType;
+    data: string;
+  };
+};
+export type ContentBlock = TextContent | ImageContent;
+export type MessageContent = string | ContentBlock[];
+
 export interface StreamEvent {
   type: "text_delta" | "text_complete" | "tool_start" | "tool_result" | "thinking" | "turn_complete" | "error" | "init";
   content?: string;
@@ -24,7 +38,7 @@ export interface StreamEvent {
 }
 
 export class ClaudeSession extends EventEmitter {
-  private messageQueue: MessageQueue<string>;
+  private messageQueue: MessageQueue<MessageContent>;
   private isRunning = false;
   private sessionId: string | null = null;
   private sessionFile: string;
@@ -51,7 +65,7 @@ export class ClaudeSession extends EventEmitter {
     this.messageQueue.close();
   }
 
-  async sendMessage(content: string): Promise<void> {
+  async sendMessage(content: MessageContent): Promise<void> {
     this.messageQueue.push(content);
   }
 
@@ -66,7 +80,7 @@ export class ClaudeSession extends EventEmitter {
 
       yield {
         type: "user",
-        message: { role: "user", content },
+        message: { role: "user", content: content as string | ContentBlock[] },
         parent_tool_use_id: null,
         session_id: this.sessionId || "",
       };
@@ -213,9 +227,9 @@ export class ClaudeSession extends EventEmitter {
         this.emit("event", {
           type: "turn_complete",
           durationMs: message.duration_ms,
-          costUsd: message.cost_usd,
+          costUsd: message.total_cost_usd,
         } as StreamEvent);
-        log.info({ turns: message.num_turns, cost: message.cost_usd }, "Query completed");
+        log.info({ turns: message.num_turns, cost: message.total_cost_usd }, "Query completed");
         // Reset message tracking for next turn
         this.currentMessageId = null;
         this.currentTextBlockIndex = -1;

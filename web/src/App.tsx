@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Agent } from './types/agents';
+import type { Attachment } from './types/messages';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useTerminal } from './hooks/useTerminal';
 import { Sidebar } from './components/Sidebar';
@@ -77,17 +78,18 @@ export default function App() {
     clearBlocks(id);
   }, [agents, activeAgentId, clearBlocks]);
 
-  const handleSubmit = useCallback((content: string) => {
-    if (!content.trim() || !connected) return;
+  const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
+    if ((!content.trim() && !attachments?.length) || !connected) return;
 
-    // Add to local terminal immediately
-    addUserCommand(activeAgentId, content);
+    // Add to local terminal immediately (with attachments for display)
+    addUserCommand(activeAgentId, content, attachments);
 
     // Send to backend
     send({
       type: 'user_message',
       agentId: activeAgentId,
       content,
+      attachments,
     });
   }, [activeAgentId, connected, send, addUserCommand]);
 

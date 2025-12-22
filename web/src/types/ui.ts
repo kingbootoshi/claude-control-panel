@@ -30,4 +30,12 @@ export interface TerminalBlock {
 
   // For collapsible sections
   collapsed?: boolean;
+
+  // For attachments (images, files)
+  attachments?: Array<{
+    type: 'image' | 'file';
+    name: string;
+    data?: string;     // base64 for images
+    mimeType: string;
+  }>;
 }

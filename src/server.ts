@@ -2,16 +2,26 @@ import express, { Express, Request, Response } from "express";
 import { createServer, Server as HttpServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
+import fs from "fs/promises";
 import { config } from "./config";
-import { ClaudeSession, StreamEvent } from "./claude-session";
+import { ClaudeSession, StreamEvent, ContentBlock, ImageMediaType } from "./claude-session";
 import { logger } from "./utils/logger";
+import { loadSessionHistory } from "./history";
 
 const log = logger.server;
+
+interface Attachment {
+  type: "image" | "file";
+  name: string;
+  data: string; // base64
+  mimeType: string;
+}
 
 interface ClientMessage {
   type: "user_message" | "ping";
   agentId?: string;
   content?: string;
+  attachments?: Attachment[];
 }
 
 interface ServerMessage {
@@ -158,7 +168,7 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
   });
 
   // WebSocket handling
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", async (ws: WebSocket) => {
     log.info("Client connected");
 
     // Send initial status
@@ -178,6 +188,20 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
     };
     ws.send(JSON.stringify(statusMessage));
 
+    // Load and send history from SDK session file
+    const sessionId = session.getSessionId();
+    if (sessionId) {
+      const history = await loadSessionHistory(sessionId);
+      if (history.length > 0) {
+        ws.send(JSON.stringify({
+          type: "history",
+          agentId: defaultAgentId,
+          blocks: history,
+        }));
+        log.info({ blocks: history.length }, "Sent SDK history to client");
+      }
+    }
+
     // Subscribe to session events
     const eventHandler = (event: StreamEvent) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -194,12 +218,54 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
         const message: ClientMessage = JSON.parse(data.toString());
 
         switch (message.type) {
-          case "user_message":
-            if (message.content && message.content.trim()) {
-              log.info({ chars: message.content.length, agentId: message.agentId }, "User message received");
-              await session.sendMessage(message.content);
+          case "user_message": {
+            const { content, attachments } = message;
+
+            // Build content blocks if we have attachments
+            if (attachments && attachments.length > 0) {
+              const contentBlocks: ContentBlock[] = [];
+              let textContent = content || "";
+
+              for (const att of attachments) {
+                if (att.type === "image") {
+                  // Add image block for SDK
+                  contentBlocks.push({
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: att.mimeType as ImageMediaType,
+                      data: att.data,
+                    },
+                  });
+                  log.info({ name: att.name, mimeType: att.mimeType }, "Image attachment added");
+                } else {
+                  // Save non-image files to workspace/uploads/
+                  const uploadsDir = path.join(config.workspace, "uploads");
+                  await fs.mkdir(uploadsDir, { recursive: true });
+                  const filename = `${Date.now()}-${att.name}`;
+                  const filepath = path.join(uploadsDir, filename);
+                  await fs.writeFile(filepath, Buffer.from(att.data, "base64"));
+                  textContent += `\n\n[Attached file: ${filepath}]`;
+                  log.info({ name: att.name, path: filepath }, "File attachment saved");
+                }
+              }
+
+              // Add text content if present
+              if (textContent.trim()) {
+                contentBlocks.push({ type: "text", text: textContent });
+              }
+
+              if (contentBlocks.length > 0) {
+                log.info({ blocks: contentBlocks.length, agentId: message.agentId }, "Multimodal message received");
+                await session.sendMessage(contentBlocks);
+              }
+            } else if (content && content.trim()) {
+              // Plain text message
+              log.info({ chars: content.length, agentId: message.agentId }, "User message received");
+              await session.sendMessage(content);
             }
             break;
+          }
 
           case "ping":
             ws.send(JSON.stringify({
