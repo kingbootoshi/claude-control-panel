@@ -30,6 +30,8 @@ export class ClaudeSession extends EventEmitter {
   private sessionFile: string;
   private currentMessageId: string | null = null;
   private currentTextBlockIndex: number = -1;
+  private hasStreamedContent: boolean = false; // Track if we've streamed this turn
+  private currentBlockIsText: boolean = false; // Track if current block is text
 
   constructor() {
     super();
@@ -111,13 +113,20 @@ export class ClaudeSession extends EventEmitter {
         break;
 
       case "assistant":
-        // Generate a new message ID for this assistant turn
-        this.currentMessageId = crypto.randomUUID();
+        // Generate a new message ID for this assistant turn if not already set by streaming
+        if (!this.currentMessageId) {
+          this.currentMessageId = crypto.randomUUID();
+        }
         this.currentTextBlockIndex = -1;
 
         for (const block of message.message.content) {
           if (block.type === "text") {
-            // Complete text block - emit as complete
+            // Skip text if we already streamed it via stream_event
+            if (this.hasStreamedContent) {
+              log.debug({ chars: block.text.length }, "Skipping already-streamed text");
+              continue;
+            }
+            // Complete text block (non-streaming fallback)
             this.emit("event", {
               type: "text_delta",
               content: block.text,
@@ -147,6 +156,7 @@ export class ClaudeSession extends EventEmitter {
         if (streamEvent.type === "content_block_start") {
           // New content block starting
           this.currentTextBlockIndex++;
+          this.currentBlockIsText = false; // Reset for new block
           if (!this.currentMessageId) {
             this.currentMessageId = crypto.randomUUID();
           }
@@ -155,6 +165,8 @@ export class ClaudeSession extends EventEmitter {
           "delta" in streamEvent
         ) {
           if (streamEvent.delta.type === "text_delta") {
+            this.hasStreamedContent = true; // Mark that we've streamed content
+            this.currentBlockIsText = true; // Mark this block as text
             this.emit("event", {
               type: "text_delta",
               content: streamEvent.delta.text,
@@ -167,13 +179,14 @@ export class ClaudeSession extends EventEmitter {
             } as StreamEvent);
           }
         } else if (streamEvent.type === "content_block_stop") {
-          // Content block finished
-          if (this.currentMessageId) {
+          // Content block finished - only emit text_complete for text blocks
+          if (this.currentMessageId && this.currentBlockIsText) {
             this.emit("event", {
               type: "text_complete",
               messageId: this.currentMessageId,
             } as StreamEvent);
           }
+          this.currentBlockIsText = false; // Reset for next block
         }
         break;
       }
@@ -203,9 +216,10 @@ export class ClaudeSession extends EventEmitter {
           costUsd: message.cost_usd,
         } as StreamEvent);
         log.info({ turns: message.num_turns, cost: message.cost_usd }, "Query completed");
-        // Reset message tracking
+        // Reset message tracking for next turn
         this.currentMessageId = null;
         this.currentTextBlockIndex = -1;
+        this.hasStreamedContent = false;
         break;
     }
   }
