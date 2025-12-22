@@ -36,8 +36,10 @@ export function MessageBlock({ block }: MessageBlockProps) {
   switch (block.type) {
     case 'user_command':
       return (
-        <div className="terminal-line command">
-          <span className="prompt">$</span> {block.content}
+        <div className="message-block user-message">
+          <div className="terminal-line command">
+            <span className="prompt">$</span> {block.content}
+          </div>
           {block.attachments && block.attachments.length > 0 && (
             <div className="attachment-grid">
               {block.attachments.map((att, i) =>
@@ -62,41 +64,51 @@ export function MessageBlock({ block }: MessageBlockProps) {
     case 'text':
     case 'text_streaming':
       return (
-        <div className="terminal-line output markdown-content">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || ''}</ReactMarkdown>
-          {block.isStreaming && <span className="cursor-blink">|</span>}
+        <div className="message-block assistant-message">
+          <div className="terminal-line output markdown-content">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || ''}</ReactMarkdown>
+            {block.isStreaming && <span className="cursor-blink">|</span>}
+          </div>
         </div>
       );
 
     case 'tool_use':
       return (
-        <ToolBlock
-          name={block.toolName!}
-          input={block.toolInput}
-          result={block.toolResult}
-          isError={block.toolError}
-        />
+        <div className="message-block tool-message">
+          <ToolBlock
+            name={block.toolName!}
+            input={block.toolInput}
+            result={block.toolResult}
+            isError={block.toolError}
+          />
+        </div>
       );
 
     case 'thinking':
       return (
-        <ThinkingBlock
-          content={block.content!}
-          collapsed={block.collapsed}
-        />
+        <div className="message-block assistant-message">
+          <ThinkingBlock
+            content={block.content!}
+            collapsed={block.collapsed}
+          />
+        </div>
       );
 
     case 'error':
       return (
-        <div className="terminal-line error">
-          {block.content}
+        <div className="message-block assistant-message">
+          <div className="terminal-line error">
+            {block.content}
+          </div>
         </div>
       );
 
     case 'system':
       return (
-        <div className="terminal-line dim">
-          {block.content}
+        <div className="message-block system-message">
+          <div className="terminal-line dim">
+            {block.content}
+          </div>
         </div>
       );
 

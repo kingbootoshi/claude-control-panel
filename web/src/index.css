@@ -239,6 +239,45 @@ body {
   padding: 16px;
 }
 
+/* Message blocks with visual separation */
+.message-block {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+/* User messages - orange left border, spacing above */
+.message-block.user-message {
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin-top: 20px;
+  margin-bottom: 12px;
+}
+
+.message-block.user-message:first-child {
+  margin-top: 0;
+}
+
+/* Claude responses - slight indent, subtle styling */
+.message-block.assistant-message {
+  padding-left: 14px;
+  margin-bottom: 8px;
+}
+
+/* Tool blocks get same indent as assistant */
+.message-block.tool-message {
+  padding-left: 14px;
+  margin-bottom: 8px;
+}
+
+/* System messages - dimmer, centered feel */
+.message-block.system-message {
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 16px 0;
+  padding-left: 14px;
+}
+
+/* Legacy terminal-line styles for compatibility */
 .terminal-line {
   margin-bottom: 4px;
   line-height: 1.6;
