@@ -37,6 +37,8 @@ export const config = {
     "Glob",
     "WebFetch",
     "WebSearch",
+    "Skill",
+    "Task",
   ] as const,
 } as const;
 

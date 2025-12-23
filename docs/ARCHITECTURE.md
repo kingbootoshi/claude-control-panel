@@ -103,6 +103,20 @@ claude_control_panel/
 
 ### Backend
 
+#### `src/history.ts` - SDK Session History Parser
+
+Loads conversation history from Claude SDK's JSONL session files.
+
+**Key concepts:**
+- Session files live at `~/.claude/projects/{hash}/{sessionId}.jsonl`
+- Recursive search via `findSessionFile()` to locate files
+- Two-pass parsing: builds blocks, matches tool_results to tool_use by ID
+- Filters image metadata strings (`[Image: original...]`)
+- Returns last N blocks (default 25, rolling window)
+
+**Exports:**
+- `loadSessionHistory(sessionId, limit)` → `HistoryBlock[]`
+
 #### `src/claude-session.ts` - Agent SDK Integration
 
 The heart of the daemon. Manages the Claude session via `@anthropic-ai/claude-agent-sdk`.
@@ -309,6 +323,7 @@ React SPA with Tailwind CSS, Vibeship-inspired dark terminal aesthetic.
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Ghost Alive + Streaming UI | DONE |
+| 1.5 | History, Images, Visual Polish | DONE |
 | 2 | Tools & Axia | Planned |
 | 3 | Child Agents | Planned |
 | 4 | Heartbeat & Scheduling | Planned |
@@ -316,6 +331,14 @@ React SPA with Tailwind CSS, Vibeship-inspired dark terminal aesthetic.
 | 6 | Electron Buddy | Planned |
 | 7 | Inter-Agent Communication | Planned |
 | 8 | Self-Evolution | Planned |
+
+### Recent Additions (Phase 1.5)
+- SDK history loading from JSONL session files
+- Image attachments (drag & drop, paste, file picker)
+- Inline image rendering in chat
+- Markdown table support (remark-gfm)
+- Visual message separation (orange border for user, indented Claude responses)
+- Mobile-responsive layout
 
 See `documentation/features/` for detailed phase specs.
 

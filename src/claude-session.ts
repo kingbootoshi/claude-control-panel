@@ -97,7 +97,8 @@ export class ClaudeSession extends EventEmitter {
           resume: this.sessionId || undefined,
           permissionMode: "bypassPermissions",
           allowDangerouslySkipPermissions: true,
-          settingSources: ["project"], // Load CLAUDE.md
+          settingSources: ["user", "project"], // Load ~/.claude/skills + workspace CLAUDE.md
+          allowedTools: [...config.allowedTools],
           includePartialMessages: true,
         },
       });
