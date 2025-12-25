@@ -40,6 +40,8 @@ interface ServerMessage {
   tools?: string[];
   durationMs?: number;
   costUsd?: number;
+  inputTokens?: number;
+  preTokens?: number;
   connected?: boolean;
   agents?: Array<{
     id: string;
@@ -102,6 +104,14 @@ function mapEventToMessage(event: StreamEvent, agentId: string): ServerMessage {
         type: "turn_complete",
         durationMs: event.durationMs,
         costUsd: event.costUsd,
+        inputTokens: event.inputTokens,
+      };
+
+    case "compact_complete":
+      return {
+        ...base,
+        type: "compact_complete",
+        preTokens: event.preTokens,
       };
 
     case "error":
@@ -191,14 +201,15 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
     // Load and send history from SDK session file
     const sessionId = session.getSessionId();
     if (sessionId) {
-      const history = await loadSessionHistory(sessionId);
-      if (history.length > 0) {
+      const { blocks: history, lastTokenCount } = await loadSessionHistory(sessionId);
+      if (history.length > 0 || lastTokenCount > 0) {
         ws.send(JSON.stringify({
           type: "history",
           agentId: defaultAgentId,
           blocks: history,
+          lastTokenCount,
         }));
-        log.info({ blocks: history.length }, "Sent SDK history to client");
+        log.info({ blocks: history.length, lastTokenCount }, "Sent SDK history to client");
       }
     }
 

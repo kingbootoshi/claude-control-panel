@@ -4,6 +4,7 @@ import type { ServerMessage, Attachment } from '../types/messages';
 
 interface UseTerminalReturn {
   blocks: TerminalBlock[];
+  tokenCount: number;
   addUserCommand: (agentId: string, content: string, attachments?: Attachment[]) => void;
   handleServerMessage: (message: ServerMessage) => void;
   clearBlocks: (agentId: string) => void;
@@ -11,6 +12,7 @@ interface UseTerminalReturn {
 
 export function useTerminal(): UseTerminalReturn {
   const [blocks, setBlocks] = useState<TerminalBlock[]>([]);
+  const [tokenCount, setTokenCount] = useState<number>(0);
 
   // Track streaming text blocks by messageId
   const streamingBlocksRef = useRef<Map<string, string>>(new Map());
@@ -150,13 +152,29 @@ export function useTerminal(): UseTerminalReturn {
       }
 
       case 'turn_complete': {
-        // Could add a subtle divider or stats display
+        if (message.inputTokens) {
+          setTokenCount(message.inputTokens);
+        }
+        break;
+      }
+
+      case 'compact_complete': {
+        addBlock({
+          type: 'system',
+          agentId,
+          content: `━━━ Compacted ━━━\nPrevious: ${message.preTokens?.toLocaleString() ?? 'unknown'} tokens`,
+        });
+        // Token count will update on next turn
         break;
       }
 
       case 'history': {
         // Replace blocks with history from server
         setBlocks(message.blocks);
+        // Set token count from history
+        if (message.lastTokenCount) {
+          setTokenCount(message.lastTokenCount);
+        }
         // Extract session ID from the last init block if present
         const initBlocks = message.blocks.filter((b: { type: string; content?: string }) =>
           b.type === 'system' && b.content?.includes('Session initialized')
@@ -177,5 +195,5 @@ export function useTerminal(): UseTerminalReturn {
     setBlocks(prev => prev.filter(b => b.agentId !== agentId));
   }, []);
 
-  return { blocks, addUserCommand, handleServerMessage, clearBlocks };
+  return { blocks, tokenCount, addUserCommand, handleServerMessage, clearBlocks };
 }

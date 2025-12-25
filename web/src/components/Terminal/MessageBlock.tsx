@@ -112,6 +112,18 @@ export function MessageBlock({ block }: MessageBlockProps) {
         </div>
       );
 
+    case 'summary':
+      return (
+        <div className="message-block summary-message">
+          <div className="summary-header">
+            <span className="summary-label">📋 Previous Session Summary</span>
+          </div>
+          <div className="summary-content markdown-content">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || ''}</ReactMarkdown>
+          </div>
+        </div>
+      );
+
     default:
       return null;
   }

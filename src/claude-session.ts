@@ -23,7 +23,7 @@ export type ContentBlock = TextContent | ImageContent;
 export type MessageContent = string | ContentBlock[];
 
 export interface StreamEvent {
-  type: "text_delta" | "text_complete" | "tool_start" | "tool_result" | "thinking" | "turn_complete" | "error" | "init";
+  type: "text_delta" | "text_complete" | "tool_start" | "tool_result" | "thinking" | "turn_complete" | "error" | "init" | "compact_complete";
   content?: string;
   messageId?: string;
   toolUseId?: string;
@@ -35,6 +35,8 @@ export interface StreamEvent {
   tools?: string[];
   durationMs?: number;
   costUsd?: number;
+  inputTokens?: number;
+  preTokens?: number;
 }
 
 export class ClaudeSession extends EventEmitter {
@@ -113,6 +115,7 @@ export class ClaudeSession extends EventEmitter {
   }
 
   private async handleMessage(message: SDKMessage): Promise<void> {
+    log.info({ type: message.type, subtype: (message as { subtype?: string }).subtype }, "Received SDK message");
     switch (message.type) {
       case "system":
         if (message.subtype === "init") {
@@ -124,6 +127,13 @@ export class ClaudeSession extends EventEmitter {
             tools: message.tools,
           } as StreamEvent);
           log.info({ sessionId: message.session_id, tools: message.tools }, "Session initialized");
+        } else if (message.subtype === "compact_boundary") {
+          const preTokens = (message as { compact_metadata?: { pre_tokens?: number } }).compact_metadata?.pre_tokens;
+          this.emit("event", {
+            type: "compact_complete",
+            preTokens,
+          } as StreamEvent);
+          log.info({ preTokens }, "Session compacted");
         }
         break;
 
@@ -224,11 +234,24 @@ export class ClaudeSession extends EventEmitter {
         }
         break;
 
-      case "result":
+      case "result": {
+        // Calculate total context tokens (sum of all input token types)
+        const usage = (message as {
+          usage?: {
+            input_tokens?: number;
+            cache_creation_input_tokens?: number;
+            cache_read_input_tokens?: number;
+          };
+        }).usage;
+        const totalInputTokens = (usage?.input_tokens || 0) +
+          (usage?.cache_creation_input_tokens || 0) +
+          (usage?.cache_read_input_tokens || 0);
+
         this.emit("event", {
           type: "turn_complete",
           durationMs: message.duration_ms,
           costUsd: message.total_cost_usd,
+          inputTokens: totalInputTokens,
         } as StreamEvent);
         log.info({ turns: message.num_turns, cost: message.total_cost_usd }, "Query completed");
         // Reset message tracking for next turn
@@ -236,6 +259,7 @@ export class ClaudeSession extends EventEmitter {
         this.currentTextBlockIndex = -1;
         this.hasStreamedContent = false;
         break;
+      }
     }
   }
 

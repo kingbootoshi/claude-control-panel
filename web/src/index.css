@@ -51,7 +51,7 @@ body {
   background: var(--void-deep);
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -760,4 +760,120 @@ body {
 .attach-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Token display */
+.token-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.token-display.normal .token-count {
+  color: var(--text-dim);
+}
+
+.token-display.warning .token-count {
+  color: var(--amber);
+}
+
+.token-display.critical .token-count {
+  color: var(--red);
+}
+
+.compact-btn {
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  color: var(--text-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.compact-btn:hover {
+  background: var(--amber-dim);
+  color: var(--text);
+  border-color: var(--amber);
+}
+
+/* Warning banner */
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 12px;
+  margin: 0 12px;
+}
+
+.warning-banner.warning {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+}
+
+.warning-banner.critical {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+}
+
+.warning-banner button {
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  color: var(--text);
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.warning-banner button:hover {
+  background: var(--void-surface);
+}
+
+/* Summary block (compaction summary) */
+.summary-message {
+  background: var(--void-surface);
+  border: 1px solid var(--void-border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.summary-header {
+  padding: 10px 14px;
+  background: var(--void-elevated);
+  border-bottom: 1px solid var(--void-border);
+}
+
+.summary-label {
+  color: var(--amber);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.summary-content {
+  padding: 14px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.summary-content .markdown-content {
+  font-size: 13px;
+}
+
+.summary-content h1,
+.summary-content h2,
+.summary-content h3 {
+  color: var(--text);
+  font-size: 14px;
+  margin: 0.5em 0;
 }

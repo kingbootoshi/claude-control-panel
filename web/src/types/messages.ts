@@ -72,6 +72,12 @@ export interface TurnCompleteMessage extends BaseServerMessage {
   type: 'turn_complete';
   durationMs: number;
   costUsd?: number;
+  inputTokens?: number;
+}
+
+export interface CompactCompleteMessage extends BaseServerMessage {
+  type: 'compact_complete';
+  preTokens?: number;
 }
 
 export interface ErrorMessage extends BaseServerMessage {
@@ -99,6 +105,7 @@ export interface HistoryMessage {
   type: 'history';
   agentId: string;
   blocks: import('./ui').TerminalBlock[];
+  lastTokenCount?: number;
 }
 
 export type ServerMessage =
@@ -109,6 +116,7 @@ export type ServerMessage =
   | ToolResultMessage
   | ThinkingMessage
   | TurnCompleteMessage
+  | CompactCompleteMessage
   | ErrorMessage
   | StatusMessage
   | PongMessage

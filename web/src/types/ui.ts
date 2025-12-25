@@ -6,7 +6,8 @@ export type TerminalBlockType =
   | 'tool_result'
   | 'thinking'
   | 'error'
-  | 'system';
+  | 'system'
+  | 'summary';
 
 export interface TerminalBlock {
   id: string;

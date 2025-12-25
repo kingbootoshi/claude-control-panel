@@ -6,6 +6,9 @@ import { useTerminal } from './hooks/useTerminal';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { Terminal } from './components/Terminal';
+import { WarningBanner } from './components/WarningBanner';
+
+const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 
 export default function App() {
   const [agents, setAgents] = useState<Agent[]>([
@@ -20,9 +23,17 @@ export default function App() {
   ]);
 
   const [activeAgentId, setActiveAgentId] = useState('ghost');
+  const [warningDismissed, setWarningDismissed] = useState(false);
 
-  const { blocks, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
+  const { blocks, tokenCount, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
   const { connected, send, connectionError } = useWebSocket(handleServerMessage);
+
+  // Reset dismissed state when tokens drop below threshold
+  useEffect(() => {
+    if (tokenCount < WARNING_THRESHOLD_TOKENS) {
+      setWarningDismissed(false);
+    }
+  }, [tokenCount]);
 
   const activeAgent = agents.find(a => a.id === activeAgentId);
   const agentBlocks = blocks.filter(b => b.agentId === activeAgentId);
@@ -93,6 +104,14 @@ export default function App() {
     });
   }, [activeAgentId, connected, send, addUserCommand]);
 
+  const handleCompact = useCallback(() => {
+    send({
+      type: 'user_message',
+      agentId: activeAgentId,
+      content: '/compact',
+    });
+  }, [activeAgentId, send]);
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -110,12 +129,22 @@ export default function App() {
           onNewTab={addNewAgent}
         />
 
+        {!warningDismissed && (
+          <WarningBanner
+            tokenCount={tokenCount}
+            onCompact={handleCompact}
+            onDismiss={() => setWarningDismissed(true)}
+          />
+        )}
+
         <Terminal
           agentName={activeAgent?.name || 'Agent'}
           blocks={agentBlocks}
           onSubmit={handleSubmit}
           connected={connected}
           connectionError={connectionError}
+          tokenCount={tokenCount}
+          onCompact={handleCompact}
         />
       </main>
     </div>
