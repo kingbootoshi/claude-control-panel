@@ -5,6 +5,7 @@ import type { ServerMessage, Attachment } from '../types/messages';
 interface UseTerminalReturn {
   blocks: TerminalBlock[];
   tokenCount: number;
+  sessionSummary: string | null;
   addUserCommand: (agentId: string, content: string, attachments?: Attachment[]) => void;
   handleServerMessage: (message: ServerMessage) => void;
   clearBlocks: (agentId: string) => void;
@@ -13,6 +14,7 @@ interface UseTerminalReturn {
 export function useTerminal(): UseTerminalReturn {
   const [blocks, setBlocks] = useState<TerminalBlock[]>([]);
   const [tokenCount, setTokenCount] = useState<number>(0);
+  const [sessionSummary, setSessionSummary] = useState<string | null>(null);
 
   // Track streaming text blocks by messageId
   const streamingBlocksRef = useRef<Map<string, string>>(new Map());
@@ -169,8 +171,14 @@ export function useTerminal(): UseTerminalReturn {
       }
 
       case 'history': {
-        // Replace blocks with history from server
-        setBlocks(message.blocks);
+        // Replace blocks with history from server (excluding summary blocks from main view)
+        const nonSummaryBlocks = message.blocks.filter((b: { type: string }) => b.type !== 'summary');
+        setBlocks(nonSummaryBlocks);
+        // Extract summary for right sidebar
+        const summaryBlock = message.blocks.find((b: { type: string }) => b.type === 'summary');
+        if (summaryBlock?.content) {
+          setSessionSummary(summaryBlock.content);
+        }
         // Set token count from history
         if (message.lastTokenCount) {
           setTokenCount(message.lastTokenCount);
@@ -195,5 +203,5 @@ export function useTerminal(): UseTerminalReturn {
     setBlocks(prev => prev.filter(b => b.agentId !== agentId));
   }, []);
 
-  return { blocks, tokenCount, addUserCommand, handleServerMessage, clearBlocks };
+  return { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks };
 }

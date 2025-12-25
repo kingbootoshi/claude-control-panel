@@ -99,6 +99,7 @@ function mapEventToMessage(event: StreamEvent, agentId: string): ServerMessage {
       };
 
     case "turn_complete":
+      log.info({ inputTokens: event.inputTokens, cost: event.costUsd }, "Turn complete - token count");
       return {
         ...base,
         type: "turn_complete",

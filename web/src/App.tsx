@@ -7,6 +7,8 @@ import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { Terminal } from './components/Terminal';
 import { WarningBanner } from './components/WarningBanner';
+import { RightSidebar } from './components/RightSidebar';
+import { MobileHeader } from './components/MobileHeader';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 
@@ -24,9 +26,17 @@ export default function App() {
 
   const [activeAgentId, setActiveAgentId] = useState('ghost');
   const [warningDismissed, setWarningDismissed] = useState(false);
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
 
-  const { blocks, tokenCount, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
+  const { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
   const { connected, send, connectionError } = useWebSocket(handleServerMessage);
+
+  // Close drawers when clicking overlay
+  const closeDrawers = useCallback(() => {
+    setLeftDrawerOpen(false);
+    setRightDrawerOpen(false);
+  }, []);
 
   // Reset dismissed state when tokens drop below threshold
   useEffect(() => {
@@ -35,7 +45,6 @@ export default function App() {
     }
   }, [tokenCount]);
 
-  const activeAgent = agents.find(a => a.id === activeAgentId);
   const agentBlocks = blocks.filter(b => b.agentId === activeAgentId);
 
   // Keyboard shortcuts
@@ -112,23 +121,45 @@ export default function App() {
     });
   }, [activeAgentId, send]);
 
+  const activeAgent = agents.find(a => a.id === activeAgentId);
+
   return (
     <div className="app-layout">
+      {/* Drawer overlay backdrop */}
+      <div
+        className={`drawer-overlay ${leftDrawerOpen || rightDrawerOpen ? 'visible' : ''}`}
+        onClick={closeDrawers}
+      />
+
       <Sidebar
         agents={agents}
         activeAgentId={activeAgentId}
         onAgentSelect={setActiveAgentId}
         onCompact={handleCompact}
         tokenCount={tokenCount}
+        isOpen={leftDrawerOpen}
+        onClose={() => setLeftDrawerOpen(false)}
       />
 
       <main className="main-area">
+        {/* Mobile header - shown on small screens */}
+        <MobileHeader
+          agentName={activeAgent?.name || 'Agent'}
+          status={activeAgent?.status || 'online'}
+          tokenCount={tokenCount}
+          onLeftToggle={() => setLeftDrawerOpen(true)}
+          onRightToggle={() => setRightDrawerOpen(true)}
+        />
+
+        {/* Desktop tab bar - hidden on mobile */}
         <TabBar
           agents={agents}
           activeAgentId={activeAgentId}
           onTabSelect={setActiveAgentId}
           onTabClose={closeAgent}
           onNewTab={addNewAgent}
+          tokenCount={tokenCount}
+          onCompact={handleCompact}
         />
 
         {!warningDismissed && (
@@ -140,15 +171,18 @@ export default function App() {
         )}
 
         <Terminal
-          agentName={activeAgent?.name || 'Agent'}
           blocks={agentBlocks}
           onSubmit={handleSubmit}
           connected={connected}
           connectionError={connectionError}
-          tokenCount={tokenCount}
-          onCompact={handleCompact}
         />
       </main>
+
+      <RightSidebar
+        summary={sessionSummary}
+        isOpen={rightDrawerOpen}
+        onClose={() => setRightDrawerOpen(false)}
+      />
     </div>
   );
 }

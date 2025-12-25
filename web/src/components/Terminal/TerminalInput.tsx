@@ -19,6 +19,14 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
     inputRef.current?.focus();
   }, []);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
+    }
+  }, [input]);
+
   const fileToAttachment = useCallback(async (file: File): Promise<Attachment> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -83,6 +91,10 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
         onSubmit(input, attachments.length > 0 ? attachments : undefined);
         setInput('');
         setAttachments([]);
+        // Reset textarea height
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+        }
       }
     }
   };
@@ -114,37 +126,39 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
         </div>
       )}
 
-      <div className="terminal-input-row">
-        <span className="terminal-prompt">$</span>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder={placeholder || 'Message Claude...'}
-          className="terminal-input"
-          disabled={disabled}
-          autoComplete="off"
-          spellCheck={false}
-          rows={2}
-        />
-        <button
-          className="attach-btn"
-          onClick={() => fileInputRef.current?.click()}
-          title="Attach file (images, PDFs, text)"
-          disabled={disabled}
-        >
-          <AttachIcon />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*,.pdf,.txt,.md,.json,.csv,.xml,.yaml,.yml"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
+      <div className="terminal-input-container">
+        <div className="terminal-input-row">
+          <span className="terminal-prompt">$</span>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={placeholder || 'Message Claude...'}
+            className="terminal-input"
+            disabled={disabled}
+            autoComplete="off"
+            spellCheck={false}
+            rows={1}
+          />
+          <button
+            className="attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach file (images, PDFs, text)"
+            disabled={disabled}
+          >
+            <AttachIcon />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.txt,.md,.json,.csv,.xml,.yaml,.yml"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+        </div>
       </div>
     </div>
   );

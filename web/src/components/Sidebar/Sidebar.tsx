@@ -1,5 +1,5 @@
 import type { Agent } from '../../types/agents';
-import { FolderIcon, FileIcon, CompactIcon } from '../Icons';
+import { CompactIcon, CloseIcon } from '../Icons';
 
 interface SidebarProps {
   agents: Agent[];
@@ -7,20 +7,32 @@ interface SidebarProps {
   onAgentSelect: (id: string) => void;
   onCompact: () => void;
   tokenCount: number;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount }: SidebarProps) {
+export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount, isOpen, onClose }: SidebarProps) {
   const formatTokens = (count: number) => {
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
   };
 
+  const handleAgentSelect = (id: string) => {
+    onAgentSelect(id);
+    onClose?.();
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <span>Claude Control Panel (CCP)</span>
+          <span>Claude Control Panel</span>
         </div>
+        {onClose && (
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
+            <CloseIcon />
+          </button>
+        )}
       </div>
 
       {/* Agents section */}
@@ -30,34 +42,17 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
           <div
             key={agent.id}
             className={`sidebar-item ${activeAgentId === agent.id ? 'active' : ''}`}
-            onClick={() => onAgentSelect(agent.id)}
+            onClick={() => handleAgentSelect(agent.id)}
           >
-            <span>{agent.id === 'ghost' ? '◇' : '○'}</span>
+            <span className="mono">{agent.id === 'ghost' ? '◇' : '○'}</span>
             <span>{agent.name}</span>
             <span className={`status-dot ${agent.status}`} />
           </div>
         ))}
       </div>
 
-      {/* Workspace section */}
-      <div className="sidebar-section">
-        <div className="sidebar-section-title">Workspace</div>
-        <div className="sidebar-item">
-          <FolderIcon />
-          <span>knowledge/</span>
-        </div>
-        <div className="sidebar-item">
-          <FolderIcon />
-          <span>tools/</span>
-        </div>
-        <div className="sidebar-item">
-          <FileIcon />
-          <span>CLAUDE.md</span>
-        </div>
-      </div>
-
       {/* Actions section */}
-      <div className="sidebar-section">
+      <div className="sidebar-section sidebar-actions">
         <div className="sidebar-section-title">Actions</div>
         <button className="sidebar-action-btn" onClick={onCompact}>
           <CompactIcon />
@@ -65,16 +60,6 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
           <span className="action-meta">{formatTokens(tokenCount)}</span>
         </button>
       </div>
-
-      {/* Future: Processes section placeholder */}
-      {/*
-      <div className="sidebar-section">
-        <div className="sidebar-section-title">Processes</div>
-        <div className="sidebar-item dim">
-          <span>No background tasks</span>
-        </div>
-      </div>
-      */}
     </aside>
   );
 }
