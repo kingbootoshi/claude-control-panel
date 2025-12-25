@@ -29,7 +29,8 @@
       "Bash(git push:*)",
       "Bash(xargs cat:*)",
       "Bash(grep:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(cat:*)"
     ]
   }
 }

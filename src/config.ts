@@ -15,8 +15,8 @@ export const config = {
   // Server (default 3847 to avoid conflicts)
   port: parseInt(process.env.PORT || "3847", 10),
 
-  // Claude workspace path
-  workspace: expandPath(process.env.CLAUDE_WORKSPACE || "~/claude-workspace"),
+  // Claude workspace path (base path for all agent workspaces)
+  workspace: expandPath(process.env.CLAUDE_WORKSPACE || "~/.claude-workspace"),
 
   // Assistant name (configurable)
   assistantName: process.env.ASSISTANT_NAME || "Claude",

@@ -1,5 +1,5 @@
 import type { Agent } from '../../types/agents';
-import { CompactIcon, CloseIcon } from '../Icons';
+import { CompactIcon } from '../Icons';
 
 interface SidebarProps {
   agents: Agent[];
@@ -7,32 +7,20 @@ interface SidebarProps {
   onAgentSelect: (id: string) => void;
   onCompact: () => void;
   tokenCount: number;
-  isOpen?: boolean;
-  onClose?: () => void;
 }
 
-export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount }: SidebarProps) {
   const formatTokens = (count: number) => {
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
   };
 
-  const handleAgentSelect = (id: string) => {
-    onAgentSelect(id);
-    onClose?.();
-  };
-
   return (
-    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <span>Claude Control Panel</span>
         </div>
-        {onClose && (
-          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
-            <CloseIcon />
-          </button>
-        )}
       </div>
 
       {/* Agents section */}
@@ -42,7 +30,7 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
           <div
             key={agent.id}
             className={`sidebar-item ${activeAgentId === agent.id ? 'active' : ''}`}
-            onClick={() => handleAgentSelect(agent.id)}
+            onClick={() => onAgentSelect(agent.id)}
           >
             <span className="mono">{agent.id === 'ghost' ? '◇' : '○'}</span>
             <span>{agent.name}</span>

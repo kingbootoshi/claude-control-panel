@@ -7,6 +7,7 @@ import { config } from "./config";
 import { ClaudeSession, StreamEvent, ContentBlock, ImageMediaType } from "./claude-session";
 import { logger } from "./utils/logger";
 import { loadSessionHistory } from "./history";
+import { listWorkspaceFiles, readWorkspaceFile, isPathSafe } from "./utils/files";
 
 const log = logger.server;
 
@@ -171,6 +172,41 @@ export function createHttpServer(session: ClaudeSession): HttpServer {
       assistantName: config.assistantName,
       sessionId: session.getSessionId(),
     });
+  });
+
+  // Files API - list workspace files for an agent
+  app.get("/api/files/:agentName", async (req: Request, res: Response) => {
+    try {
+      const { agentName } = req.params;
+      const agentPath = path.join(config.workspace, agentName);
+      const files = await listWorkspaceFiles(agentPath);
+      res.json(files);
+    } catch (error) {
+      log.error({ error }, "Failed to list files");
+      res.status(500).json({ error: "Failed to list files" });
+    }
+  });
+
+  // Files API - read a specific file from agent workspace
+  app.get("/api/files/:agentName/*", async (req: Request, res: Response) => {
+    try {
+      const { agentName } = req.params;
+      const filePath = req.params[0]; // Everything after /api/files/:agentName/
+      const agentPath = path.join(config.workspace, agentName);
+      const fullPath = path.join(agentPath, filePath);
+
+      // Security: ensure path doesn't escape workspace
+      if (!isPathSafe(agentPath, filePath)) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+
+      const content = await readWorkspaceFile(fullPath);
+      res.json({ content });
+    } catch (error) {
+      log.error({ error }, "Failed to read file");
+      res.status(500).json({ error: "Failed to read file" });
+    }
   });
 
   // Fallback to index.html for SPA routing

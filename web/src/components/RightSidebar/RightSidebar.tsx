@@ -1,29 +1,18 @@
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, FolderIcon, FileIcon, CloseIcon } from '../Icons';
+import { ChevronDownIcon, ChevronRightIcon, FolderIcon, FileIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface RightSidebarProps {
   summary: string | null;
-  isOpen?: boolean;
-  onClose?: () => void;
 }
 
-export function RightSidebar({ summary, isOpen, onClose }: RightSidebarProps) {
+export function RightSidebar({ summary }: RightSidebarProps) {
   const [contextExpanded, setContextExpanded] = useState(true);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(true);
 
   return (
-    <aside className={`right-sidebar ${isOpen ? 'open' : ''}`}>
-      {/* Mobile close header */}
-      {onClose && (
-        <div className="right-sidebar-mobile-header">
-          <span>Context</span>
-          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close panel">
-            <CloseIcon />
-          </button>
-        </div>
-      )}
+    <aside className="right-sidebar">
 
       {/* Session Context Section */}
       <div className="right-sidebar-section">

@@ -9,8 +9,28 @@ import { Terminal } from './components/Terminal';
 import { WarningBanner } from './components/WarningBanner';
 import { RightSidebar } from './components/RightSidebar';
 import { MobileHeader } from './components/MobileHeader';
+import { MobileNav, type MobileTab } from './components/MobileNav';
+import { QuickMenu } from './components/QuickMenu';
+import { FilesView } from './components/FilesView';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
+const MOBILE_BREAKPOINT = 768;
+
+// Hook to detect mobile viewport
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return isMobile;
+}
 
 export default function App() {
   const [agents, setAgents] = useState<Agent[]>([
@@ -26,17 +46,14 @@ export default function App() {
 
   const [activeAgentId, setActiveAgentId] = useState('ghost');
   const [warningDismissed, setWarningDismissed] = useState(false);
-  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
-  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+
+  // Mobile state
+  const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState<'chat' | 'files'>('chat');
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 
   const { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
   const { connected, send, connectionError } = useWebSocket(handleServerMessage);
-
-  // Close drawers when clicking overlay
-  const closeDrawers = useCallback(() => {
-    setLeftDrawerOpen(false);
-    setRightDrawerOpen(false);
-  }, []);
 
   // Reset dismissed state when tokens drop below threshold
   useEffect(() => {
@@ -47,8 +64,10 @@ export default function App() {
 
   const agentBlocks = blocks.filter(b => b.agentId === activeAgentId);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (desktop only)
   useEffect(() => {
+    if (isMobile) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+N or Cmd+N - new agent
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -74,7 +93,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [agents, activeAgentId]);
+  }, [agents, activeAgentId, isMobile]);
 
   const addNewAgent = useCallback(() => {
     const newAgent: Agent = {
@@ -121,37 +140,81 @@ export default function App() {
     });
   }, [activeAgentId, send]);
 
+  // Handle mobile tab changes
+  const handleMobileTabChange = useCallback((tab: MobileTab) => {
+    if (tab === 'menu') {
+      setQuickMenuOpen(true);
+    } else {
+      setMobileTab(tab);
+    }
+  }, []);
+
   const activeAgent = agents.find(a => a.id === activeAgentId);
 
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="app-layout mobile">
+        <MobileHeader
+          agentName={activeAgent?.name || 'Agent'}
+          status={activeAgent?.status || 'online'}
+          tokenCount={tokenCount}
+        />
+
+        {!warningDismissed && (
+          <WarningBanner
+            tokenCount={tokenCount}
+            onCompact={handleCompact}
+            onDismiss={() => setWarningDismissed(true)}
+          />
+        )}
+
+        <main className="main-area mobile">
+          {mobileTab === 'chat' && (
+            <Terminal
+              blocks={agentBlocks}
+              onSubmit={handleSubmit}
+              connected={connected}
+              connectionError={connectionError}
+            />
+          )}
+
+          {mobileTab === 'files' && (
+            <FilesView agentName={activeAgent?.name || 'Ghost'} />
+          )}
+        </main>
+
+        <MobileNav
+          activeTab={mobileTab}
+          onTabChange={handleMobileTabChange}
+        />
+
+        <QuickMenu
+          isOpen={quickMenuOpen}
+          onClose={() => setQuickMenuOpen(false)}
+          agents={agents}
+          activeAgentId={activeAgentId}
+          onAgentSelect={setActiveAgentId}
+          sessionSummary={sessionSummary}
+          tokenCount={tokenCount}
+          onCompact={handleCompact}
+        />
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="app-layout">
-      {/* Drawer overlay backdrop */}
-      <div
-        className={`drawer-overlay ${leftDrawerOpen || rightDrawerOpen ? 'visible' : ''}`}
-        onClick={closeDrawers}
-      />
-
       <Sidebar
         agents={agents}
         activeAgentId={activeAgentId}
         onAgentSelect={setActiveAgentId}
         onCompact={handleCompact}
         tokenCount={tokenCount}
-        isOpen={leftDrawerOpen}
-        onClose={() => setLeftDrawerOpen(false)}
       />
 
       <main className="main-area">
-        {/* Mobile header - shown on small screens */}
-        <MobileHeader
-          agentName={activeAgent?.name || 'Agent'}
-          status={activeAgent?.status || 'online'}
-          tokenCount={tokenCount}
-          onLeftToggle={() => setLeftDrawerOpen(true)}
-          onRightToggle={() => setRightDrawerOpen(true)}
-        />
-
-        {/* Desktop tab bar - hidden on mobile */}
         <TabBar
           agents={agents}
           activeAgentId={activeAgentId}
@@ -178,11 +241,7 @@ export default function App() {
         />
       </main>
 
-      <RightSidebar
-        summary={sessionSummary}
-        isOpen={rightDrawerOpen}
-        onClose={() => setRightDrawerOpen(false)}
-      />
+      <RightSidebar summary={sessionSummary} />
     </div>
   );
 }
