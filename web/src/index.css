@@ -1200,6 +1200,11 @@ body {
   margin: 8px 0;
   border-left: 2px solid var(--text-muted);
   padding-left: 12px;
+  transition: border-color 0.3s;
+}
+
+.thinking-block.streaming {
+  border-left-color: var(--accent);
 }
 
 .thinking-header {
@@ -1221,11 +1226,32 @@ body {
   align-items: center;
 }
 
+.thinking-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
 .thinking-content {
   margin-top: 8px;
   color: var(--text-dim);
   font-size: 12px;
   white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* Spinning animation for loading icon */

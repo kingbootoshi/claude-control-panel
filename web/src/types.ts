@@ -30,6 +30,7 @@ export type TerminalBlockType =
   | 'tool_use'
   | 'tool_result'
   | 'thinking'
+  | 'thinking_streaming'
   | 'error'
   | 'system'
   | 'summary';
@@ -46,6 +47,9 @@ export interface TerminalBlock {
   // For streaming text
   isStreaming?: boolean;
   messageId?: string;
+
+  // For thinking blocks
+  thinkingId?: string;
 
   // For tool blocks
   toolUseId?: string;
@@ -72,7 +76,9 @@ export interface StreamEventMessage {
     | 'text_complete'
     | 'tool_start'
     | 'tool_result'
-    | 'thinking'
+    | 'thinking_start'
+    | 'thinking_delta'
+    | 'thinking_complete'
     | 'turn_complete'
     | 'error'
     | 'init'
@@ -81,6 +87,7 @@ export interface StreamEventMessage {
   timestamp: string;
   content?: string;
   messageId?: string;
+  thinkingId?: string;
   toolUseId?: string;
   toolName?: string;
   input?: unknown;

@@ -9,11 +9,19 @@ interface MessageBlockProps {
   block: TerminalBlock;
 }
 
-function ThinkingBlock({ content, collapsed: initialCollapsed }: { content: string; collapsed?: boolean }) {
-  const [collapsed, setCollapsed] = useState(initialCollapsed ?? true);
+function ThinkingBlock({
+  content,
+  collapsed: initialCollapsed,
+  isStreaming,
+}: {
+  content: string;
+  collapsed?: boolean;
+  isStreaming?: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(initialCollapsed ?? !isStreaming);
 
   return (
-    <div className="thinking-block">
+    <div className={`thinking-block ${isStreaming ? 'streaming' : ''}`}>
       <div
         className="thinking-header"
         onClick={() => setCollapsed(!collapsed)}
@@ -21,11 +29,13 @@ function ThinkingBlock({ content, collapsed: initialCollapsed }: { content: stri
         <span className="thinking-toggle">
           {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
         </span>
-        <span>Thinking...</span>
+        {isStreaming && <span className="thinking-indicator" />}
+        <span>{isStreaming ? 'Thinking...' : 'Thought process'}</span>
       </div>
       {!collapsed && (
         <div className="thinking-content">
           {content}
+          {isStreaming && <span className="cursor-blink">|</span>}
         </div>
       )}
     </div>
@@ -85,11 +95,13 @@ export function MessageBlock({ block }: MessageBlockProps) {
       );
 
     case 'thinking':
+    case 'thinking_streaming':
       return (
         <div className="message-block assistant-message">
           <ThinkingBlock
-            content={block.content!}
+            content={block.content || ''}
             collapsed={block.collapsed}
+            isStreaming={block.isStreaming}
           />
         </div>
       );

@@ -32,6 +32,7 @@ const maxWsPayloadMb = parseIntEnv(process.env.MAX_WS_PAYLOAD_MB, 10);
 const uploadMaxMb = parseIntEnv(process.env.UPLOAD_MAX_MB, 10);
 const historyBlockLimit = parseIntEnv(process.env.HISTORY_BLOCK_LIMIT, 300);
 const webToolsEnabled = (process.env.WEB_TOOLS_ENABLED || "false").toLowerCase() === "true";
+const maxThinkingTokens = parseIntEnv(process.env.MAX_THINKING_TOKENS, 31999);
 
 const defaultOrigins = [
   `http://localhost:${port}`,
@@ -82,6 +83,9 @@ export const config = {
 
   // Allowed tools for Claude
   allowedTools: [...baseTools, ...webTools],
+
+  // Extended thinking configuration
+  maxThinkingTokens,
 } as const;
 
 export function getAgentWorkspace(agentId: string): string {

@@ -83,13 +83,16 @@ export interface StreamEvent {
     | "text_complete"
     | "tool_start"
     | "tool_result"
-    | "thinking"
+    | "thinking_start"
+    | "thinking_delta"
+    | "thinking_complete"
     | "turn_complete"
     | "error"
     | "init"
     | "compact_complete";
   content?: string;
   messageId?: string;
+  thinkingId?: string;
   toolUseId?: string;
   toolName?: string;
   input?: unknown;

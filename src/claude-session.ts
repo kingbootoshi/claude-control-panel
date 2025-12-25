@@ -20,6 +20,8 @@ export class ClaudeSession extends EventEmitter {
   private currentBlockIsText: boolean = false; // Track if current block is text
   private lastStepUsage: { inputTokens: number; cacheCreationTokens: number; cacheReadTokens: number } | null = null;
   private toolUseNameMap: Map<string, string> = new Map();
+  private currentThinkingId: string | null = null;
+  private currentThinkingBlockIndex: number = -1;
 
   constructor() {
     super();
@@ -74,6 +76,7 @@ export class ClaudeSession extends EventEmitter {
           settingSources: ["user", "project"], // Load ~/.claude/skills + workspace CLAUDE.md
           allowedTools: [...config.allowedTools],
           includePartialMessages: true,
+          maxThinkingTokens: config.maxThinkingTokens,
         },
       });
 
@@ -167,6 +170,16 @@ export class ClaudeSession extends EventEmitter {
           if (!this.currentMessageId) {
             this.currentMessageId = crypto.randomUUID();
           }
+
+          // Check if this is a thinking block starting
+          if ("content_block" in streamEvent && streamEvent.content_block?.type === "thinking") {
+            this.currentThinkingBlockIndex++;
+            this.currentThinkingId = crypto.randomUUID();
+            this.emit("event", {
+              type: "thinking_start",
+              thinkingId: this.currentThinkingId,
+            } as StreamEvent);
+          }
         } else if (
           streamEvent.type === "content_block_delta" &&
           "delta" in streamEvent
@@ -180,14 +193,24 @@ export class ClaudeSession extends EventEmitter {
               messageId: this.currentMessageId || crypto.randomUUID(),
             } as StreamEvent);
           } else if (streamEvent.delta.type === "thinking_delta" && "thinking" in streamEvent.delta) {
+            // Stream thinking content incrementally
             this.emit("event", {
-              type: "thinking",
+              type: "thinking_delta",
+              thinkingId: this.currentThinkingId || crypto.randomUUID(),
               content: (streamEvent.delta as { thinking: string }).thinking,
             } as StreamEvent);
           }
         } else if (streamEvent.type === "content_block_stop") {
-          // Content block finished - only emit text_complete for text blocks
-          if (this.currentMessageId && this.currentBlockIsText) {
+          // Content block finished - emit appropriate complete event
+          if (this.currentThinkingId) {
+            // This was a thinking block
+            this.emit("event", {
+              type: "thinking_complete",
+              thinkingId: this.currentThinkingId,
+            } as StreamEvent);
+            this.currentThinkingId = null;
+          } else if (this.currentMessageId && this.currentBlockIsText) {
+            // This was a text block
             this.emit("event", {
               type: "text_complete",
               messageId: this.currentMessageId,
@@ -250,6 +273,8 @@ export class ClaudeSession extends EventEmitter {
         this.currentTextBlockIndex = -1;
         this.hasStreamedContent = false;
         this.lastStepUsage = null;
+        this.currentThinkingId = null;
+        this.currentThinkingBlockIndex = -1;
         break;
       }
     }

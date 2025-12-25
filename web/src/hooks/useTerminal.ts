@@ -22,6 +22,9 @@ export function useTerminal(): UseTerminalReturn {
   // Track tool blocks by toolUseId
   const toolBlocksRef = useRef<Map<string, string>>(new Map());
 
+  // Track thinking blocks by thinkingId
+  const thinkingBlocksRef = useRef<Map<string, string>>(new Map());
+
   // Track session ID to avoid init spam
   const currentSessionIdRef = useRef<string | null>(null);
 
@@ -115,13 +118,46 @@ export function useTerminal(): UseTerminalReturn {
         break;
       }
 
-      case 'thinking': {
-        addBlock({
-          type: 'thinking',
+      case 'thinking_start': {
+        const thinkingId = message.thinkingId ?? crypto.randomUUID();
+        const blockId = addBlock({
+          type: 'thinking_streaming',
           agentId,
-          content: message.content,
-          collapsed: true,
+          content: '',
+          isStreaming: true,
+          thinkingId,
+          collapsed: false, // Expanded by default while streaming
         });
+        thinkingBlocksRef.current.set(thinkingId, blockId);
+        break;
+      }
+
+      case 'thinking_delta': {
+        const thinkingId = message.thinkingId ?? 'unknown';
+        const existingBlockId = thinkingBlocksRef.current.get(thinkingId);
+        if (existingBlockId) {
+          // Append content to existing thinking block
+          setBlocks(prev => prev.map(block =>
+            block.id === existingBlockId
+              ? { ...block, content: (block.content || '') + (message.content ?? '') }
+              : block
+          ));
+        }
+        break;
+      }
+
+      case 'thinking_complete': {
+        const thinkingId = message.thinkingId ?? 'unknown';
+        const blockId = thinkingBlocksRef.current.get(thinkingId);
+        if (blockId) {
+          // Mark complete and auto-collapse
+          updateBlock(blockId, {
+            type: 'thinking',
+            isStreaming: false,
+            collapsed: true,
+          });
+          thinkingBlocksRef.current.delete(thinkingId);
+        }
         break;
       }
 
@@ -173,6 +209,7 @@ export function useTerminal(): UseTerminalReturn {
   const applyHistory = useCallback((history: HistoryResult) => {
     streamingBlocksRef.current.clear();
     toolBlocksRef.current.clear();
+    thinkingBlocksRef.current.clear();
     const nonSummaryBlocks = history.blocks.filter((b) => b.type !== 'summary');
     setBlocks(nonSummaryBlocks);
 
