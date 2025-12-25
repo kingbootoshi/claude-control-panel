@@ -1,7 +1,7 @@
 # Bug: Token Count Doubling on Each Turn
 
 ## Status
-**Open** - Not yet investigated
+**Fixed** - Split cumulative vs current-context usage
 
 ## Summary
 Token count approximately doubles after each message instead of incrementing by the actual token usage.
@@ -25,7 +25,7 @@ Token count should increment by the actual tokens used:
 ## Potential Causes (To Investigate)
 
 ### 1. Double-counting in SDK token calculation
-Location: `src/claude-session.ts:246-248`
+Location: `src/claude-session.ts`
 ```typescript
 const totalInputTokens = (usage?.input_tokens || 0) +
   (usage?.cache_creation_input_tokens || 0) +
@@ -40,18 +40,17 @@ const totalInputTokens = (usage?.input_tokens || 0) +
 - Live: SDK's `message.usage` object
 
 ### 3. SDK reports cumulative vs incremental
-- Need to verify what SDK's `usage.input_tokens` actually represents
-- Is it per-turn or cumulative for session?
+The SDK `result` usage is cumulative for the whole run. The current context
+should be taken from the most recent assistant message usage.
 
 ### 4. Caching behavior
 - `cache_read_input_tokens` might be duplicating what's in `input_tokens`
 - Check Anthropic docs for exact semantics of these fields
 
-## Files to Investigate
-- `src/claude-session.ts` - Token calculation from SDK
-- `src/history.ts` - Historical token extraction
-- `src/server.ts:102` - Debug log added for token count
-- SDK documentation for `usage` object structure
+## Fix
+- Track `lastStepUsage` from assistant messages
+- Emit `currentContextTokens` from the last step
+- Emit `totalInputTokensSpent` from cumulative `result.usage`
 
 ## Notes
 - Debug logging was added at `src/server.ts:102` to help investigate

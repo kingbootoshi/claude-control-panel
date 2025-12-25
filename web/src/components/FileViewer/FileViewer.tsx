@@ -1,43 +1,56 @@
-import { useState, useEffect } from 'react';
 import { CloseIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { trpc } from '../../trpc';
 
 interface FileViewerProps {
-  agentName: string;
+  agentId: string;
   filePath: string;
   onClose: () => void;
 }
 
-export function FileViewer({ agentName, filePath, onClose }: FileViewerProps) {
-  const [content, setContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+function JsonViewer({ content }: { content: string }) {
+  try {
+    const parsed = JSON.parse(content);
+    const formatted = JSON.stringify(parsed, null, 2);
+    return (
+      <pre className="json-viewer">
+        <code>{formatJsonWithColors(formatted)}</code>
+      </pre>
+    );
+  } catch {
+    return <pre className="json-viewer"><code>{content}</code></pre>;
+  }
+}
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
+function formatJsonWithColors(json: string): React.ReactNode[] {
+  const lines = json.split('\n');
+  return lines.map((line, i) => {
+    const colored = line
+      .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+      .replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+      .replace(/: (\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+      .replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>')
+      .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+    return (
+      <div key={i} dangerouslySetInnerHTML={{ __html: colored }} />
+    );
+  });
+}
 
-    fetch(`/api/files/${agentName}/${filePath}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load file');
-        return res.json();
-      })
-      .then(data => {
-        setContent(data.content);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [agentName, filePath]);
+export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
+  const fileQuery = trpc.files.read.useQuery(
+    { agentId, path: filePath },
+    { enabled: Boolean(agentId && filePath) }
+  );
+
+  const isJson = filePath.endsWith('.json');
 
   return (
     <div className="file-viewer-panel">
       <div className="file-viewer-header">
         <div className="file-viewer-path">
-          <span className="file-viewer-agent">{agentName}</span>
+          <span className="file-viewer-agent">{agentId}</span>
           <span className="file-viewer-separator">/</span>
           <span className="file-viewer-file">{filePath}</span>
         </div>
@@ -47,18 +60,22 @@ export function FileViewer({ agentName, filePath, onClose }: FileViewerProps) {
       </div>
 
       <div className="file-viewer-content">
-        {loading && (
+        {fileQuery.isLoading && (
           <div className="file-viewer-loading">Loading...</div>
         )}
 
-        {error && (
-          <div className="file-viewer-error">{error}</div>
+        {fileQuery.error && (
+          <div className="file-viewer-error">{fileQuery.error.message}</div>
         )}
 
-        {!loading && !error && (
-          <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-          </div>
+        {!fileQuery.isLoading && !fileQuery.error && (
+          isJson ? (
+            <JsonViewer content={fileQuery.data?.content || ''} />
+          ) : (
+            <div className="markdown-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileQuery.data?.content || ''}</ReactMarkdown>
+            </div>
+          )
         )}
       </div>
     </div>

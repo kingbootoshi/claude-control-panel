@@ -12,7 +12,7 @@ const transport = pino.transport({
 
 const baseLogger = pino(
   {
-    level: process.env.LOG_LEVEL || "info",
+    level: process.env.INFO_LEVEL || process.env.LOG_LEVEL || "info",
   },
   transport
 );

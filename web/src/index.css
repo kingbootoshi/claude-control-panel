@@ -1634,3 +1634,102 @@ body {
   font-size: 11px;
   color: var(--text-dim);
 }
+
+/* Auth gate */
+.auth-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--void-deep);
+}
+
+.auth-card {
+  width: min(420px, 90%);
+  background: var(--void-surface);
+  border: 1px solid var(--void-border);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.auth-card h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.auth-card p {
+  margin: 0 0 16px;
+  color: var(--text-dim);
+}
+
+.auth-card input {
+  width: 100%;
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.auth-card button {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-card button:hover {
+  background: var(--accent-dim);
+}
+
+.auth-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--red);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+/* JSON Viewer */
+.json-viewer {
+  background: var(--void-elevated);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.json-viewer code {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+.json-key {
+  color: #7dd3fc; /* sky-300 */
+}
+
+.json-string {
+  color: #86efac; /* green-300 */
+}
+
+.json-number {
+  color: #fcd34d; /* amber-300 */
+}
+
+.json-boolean {
+  color: #c4b5fd; /* violet-300 */
+}
+
+.json-null {
+  color: var(--text-dim);
+  font-style: italic;
+}

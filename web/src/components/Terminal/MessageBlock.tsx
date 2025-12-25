@@ -1,4 +1,4 @@
-import type { TerminalBlock } from '../../types/ui';
+import type { TerminalBlock } from '../../types';
 import { ToolBlock } from './ToolBlock';
 import { useState } from 'react';
 import { ChevronRightIcon, ChevronDownIcon, FileIcon } from '../Icons';

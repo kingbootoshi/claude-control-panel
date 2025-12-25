@@ -1,18 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, FolderIcon, FileIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-interface FileEntry {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  children?: FileEntry[];
-}
+import { trpc } from '../../trpc';
+import type { FileEntry } from '../../types';
 
 interface RightSidebarProps {
   summary: string | null;
-  agentName: string;
+  agentId: string;
   onFileSelect: (filePath: string) => void;
 }
 
@@ -21,7 +16,7 @@ function FileTreeItem({
   item,
   depth = 0,
   basePath = '',
-  onFileClick
+  onFileClick,
 }: {
   item: FileEntry;
   depth?: number;
@@ -54,7 +49,7 @@ function FileTreeItem({
               })
               .map(child => (
                 <FileTreeItem
-                  key={child.path}
+                  key={`${fullPath}/${child.path}`}
                   item={child}
                   depth={depth + 1}
                   basePath={fullPath}
@@ -67,14 +62,13 @@ function FileTreeItem({
     );
   }
 
-  // File - only .md files are clickable for now
-  const isMarkdown = item.name.endsWith('.md');
+  const isViewable = item.name.endsWith('.md') || item.name.endsWith('.json');
 
   return (
     <div
-      className={`workspace-file ${isMarkdown ? 'clickable' : ''}`}
+      className={`workspace-file ${isViewable ? 'clickable' : ''}`}
       style={{ paddingLeft: `${depth * 12 + 16}px` }}
-      onClick={() => isMarkdown && onFileClick(fullPath)}
+      onClick={() => isViewable && onFileClick(fullPath)}
     >
       <FileIcon />
       <span>{item.name}</span>
@@ -82,31 +76,17 @@ function FileTreeItem({
   );
 }
 
-export function RightSidebar({ summary, agentName, onFileSelect }: RightSidebarProps) {
+export function RightSidebar({ summary, agentId, onFileSelect }: RightSidebarProps) {
   const [contextExpanded, setContextExpanded] = useState(true);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(true);
-  const [files, setFiles] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  // Fetch files when workspace is expanded
-  useEffect(() => {
-    if (workspaceExpanded && files.length === 0) {
-      setLoading(true);
-      fetch(`/api/files/${agentName}`)
-        .then(res => res.json())
-        .then(data => {
-          setFiles(data);
-          setLoading(false);
-        })
-        .catch(() => {
-          setLoading(false);
-        });
-    }
-  }, [workspaceExpanded, agentName, files.length]);
+  const filesQuery = trpc.files.list.useQuery(
+    { agentId },
+    { enabled: Boolean(agentId && workspaceExpanded) }
+  );
 
   return (
     <aside className="right-sidebar">
-
       {/* Session Context Section */}
       <div className="right-sidebar-section">
         <div
@@ -143,12 +123,14 @@ export function RightSidebar({ summary, agentName, onFileSelect }: RightSidebarP
           </span>
         </div>
         <div className={`right-sidebar-content ${workspaceExpanded ? '' : 'collapsed'}`}>
-          {loading ? (
+          {filesQuery.isLoading ? (
             <div className="workspace-loading">Loading...</div>
-          ) : files.length === 0 ? (
+          ) : filesQuery.error ? (
+            <div className="workspace-empty">Failed to load files</div>
+          ) : (filesQuery.data ?? []).length === 0 ? (
             <div className="workspace-empty">No files in workspace</div>
           ) : (
-            files
+            (filesQuery.data ?? [])
               .sort((a, b) => {
                 if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
                 return a.name.localeCompare(b.name);

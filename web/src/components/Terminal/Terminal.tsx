@@ -1,5 +1,4 @@
-import type { TerminalBlock } from '../../types/ui';
-import type { Attachment } from '../../types/messages';
+import type { Attachment, TerminalBlock } from '../../types';
 import { TerminalOutput } from './TerminalOutput';
 import { TerminalInput } from './TerminalInput';
 

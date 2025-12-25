@@ -30,7 +30,11 @@
       "Bash(xargs cat:*)",
       "Bash(grep:*)",
       "Bash(mkdir:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git fetch:*)",
+      "Bash(bun run test)",
+      "Bash(claude:*)",
+      "Bash(curl:*)"
     ]
   }
 }

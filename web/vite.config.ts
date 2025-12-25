@@ -6,4 +6,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  server: {
+    port: 5173,
+    fs: {
+      allow: ['..'],
+    },
+    proxy: {
+      '/trpc': {
+        target: 'http://localhost:3847',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:3847',
+        changeOrigin: true,
+      },
+    },
+  },
 })

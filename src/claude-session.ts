@@ -2,42 +2,12 @@ import { query, type SDKMessage, type SDKUserMessage } from "@anthropic-ai/claud
 import { EventEmitter } from "events";
 import fs from "fs/promises";
 import path from "path";
-import { config } from "./config";
+import { config, getAgentWorkspace } from "./config";
 import { MessageQueue } from "./message-queue";
 import { logger } from "./utils/logger";
+import type { ContentBlock, MessageContent, StreamEvent } from "./types";
 
 const log = logger.session;
-
-// Content block types for multimodal messages
-export type TextContent = { type: "text"; text: string };
-export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-export type ImageContent = {
-  type: "image";
-  source: {
-    type: "base64";
-    media_type: ImageMediaType;
-    data: string;
-  };
-};
-export type ContentBlock = TextContent | ImageContent;
-export type MessageContent = string | ContentBlock[];
-
-export interface StreamEvent {
-  type: "text_delta" | "text_complete" | "tool_start" | "tool_result" | "thinking" | "turn_complete" | "error" | "init" | "compact_complete";
-  content?: string;
-  messageId?: string;
-  toolUseId?: string;
-  toolName?: string;
-  input?: unknown;
-  result?: string;
-  isError?: boolean;
-  sessionId?: string;
-  tools?: string[];
-  durationMs?: number;
-  costUsd?: number;
-  inputTokens?: number;
-  preTokens?: number;
-}
 
 export class ClaudeSession extends EventEmitter {
   private messageQueue: MessageQueue<MessageContent>;
@@ -48,11 +18,13 @@ export class ClaudeSession extends EventEmitter {
   private currentTextBlockIndex: number = -1;
   private hasStreamedContent: boolean = false; // Track if we've streamed this turn
   private currentBlockIsText: boolean = false; // Track if current block is text
+  private lastStepUsage: { inputTokens: number; cacheCreationTokens: number; cacheReadTokens: number } | null = null;
+  private toolUseNameMap: Map<string, string> = new Map();
 
   constructor() {
     super();
     this.messageQueue = new MessageQueue();
-    this.sessionFile = path.join(config.workspace, config.sessionFile);
+    this.sessionFile = path.join(getAgentWorkspace(config.primaryAgentId), config.sessionFile);
   }
 
   async start(): Promise<void> {
@@ -94,7 +66,7 @@ export class ClaudeSession extends EventEmitter {
       const q = query({
         prompt: this.createMessageGenerator(),
         options: {
-          cwd: config.workspace,
+          cwd: getAgentWorkspace(config.primaryAgentId),
           model: config.model,
           resume: this.sessionId || undefined,
           permissionMode: "bypassPermissions",
@@ -109,8 +81,10 @@ export class ClaudeSession extends EventEmitter {
         await this.handleMessage(message);
       }
     } catch (err) {
-      log.error({ error: err }, "Query loop error");
-      this.emit("event", { type: "error", content: String(err) } as StreamEvent);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      log.error({ error: errorMessage, stack: errorStack }, "Query loop error");
+      this.emit("event", { type: "error", content: errorMessage } as StreamEvent);
     }
   }
 
@@ -138,6 +112,13 @@ export class ClaudeSession extends EventEmitter {
         break;
 
       case "assistant":
+        if (message.message.usage) {
+          this.lastStepUsage = {
+            inputTokens: message.message.usage.input_tokens ?? 0,
+            cacheCreationTokens: message.message.usage.cache_creation_input_tokens ?? 0,
+            cacheReadTokens: message.message.usage.cache_read_input_tokens ?? 0,
+          };
+        }
         // Generate a new message ID for this assistant turn if not already set by streaming
         if (!this.currentMessageId) {
           this.currentMessageId = crypto.randomUUID();
@@ -164,6 +145,7 @@ export class ClaudeSession extends EventEmitter {
             log.debug({ chars: block.text.length }, "Received text");
           } else if (block.type === "tool_use") {
             log.info({ tool: block.name }, "Tool invoked");
+            this.toolUseNameMap.set(block.id, block.name);
             this.emit("event", {
               type: "tool_start",
               toolUseId: block.id,
@@ -224,9 +206,14 @@ export class ClaudeSession extends EventEmitter {
               ? block.content
               : JSON.stringify(block.content);
 
+            const toolName = this.toolUseNameMap.get(block.tool_use_id);
+            if (toolName) {
+              this.toolUseNameMap.delete(block.tool_use_id);
+            }
             this.emit("event", {
               type: "tool_result",
               toolUseId: block.tool_use_id,
+              toolName,
               result: resultContent,
               isError: block.is_error,
             } as StreamEvent);
@@ -235,7 +222,7 @@ export class ClaudeSession extends EventEmitter {
         break;
 
       case "result": {
-        // Calculate total context tokens (sum of all input token types)
+        // Calculate cumulative input tokens and current context tokens separately
         const usage = (message as {
           usage?: {
             input_tokens?: number;
@@ -243,21 +230,26 @@ export class ClaudeSession extends EventEmitter {
             cache_read_input_tokens?: number;
           };
         }).usage;
-        const totalInputTokens = (usage?.input_tokens || 0) +
+        const totalInputTokensSpent = (usage?.input_tokens || 0) +
           (usage?.cache_creation_input_tokens || 0) +
           (usage?.cache_read_input_tokens || 0);
+        const currentContextTokens = (this.lastStepUsage?.inputTokens || 0) +
+          (this.lastStepUsage?.cacheCreationTokens || 0) +
+          (this.lastStepUsage?.cacheReadTokens || 0);
 
         this.emit("event", {
           type: "turn_complete",
           durationMs: message.duration_ms,
           costUsd: message.total_cost_usd,
-          inputTokens: totalInputTokens,
+          currentContextTokens,
+          totalInputTokensSpent,
         } as StreamEvent);
         log.info({ turns: message.num_turns, cost: message.total_cost_usd }, "Query completed");
         // Reset message tracking for next turn
         this.currentMessageId = null;
         this.currentTextBlockIndex = -1;
         this.hasStreamedContent = false;
+        this.lastStepUsage = null;
         break;
       }
     }

@@ -1,13 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
-import type { TerminalBlock } from '../types/ui';
-import type { ServerMessage, Attachment } from '../types/messages';
+import type { Attachment, HistoryResult, StreamEventMessage, TerminalBlock } from '../types';
 
 interface UseTerminalReturn {
   blocks: TerminalBlock[];
   tokenCount: number;
   sessionSummary: string | null;
   addUserCommand: (agentId: string, content: string, attachments?: Attachment[]) => void;
-  handleServerMessage: (message: ServerMessage) => void;
+  handleEvent: (message: StreamEventMessage) => void;
+  applyHistory: (history: HistoryResult) => void;
   clearBlocks: (agentId: string) => void;
 }
 
@@ -51,29 +51,20 @@ export function useTerminal(): UseTerminalReturn {
     });
   }, [addBlock]);
 
-  const handleServerMessage = useCallback((message: ServerMessage) => {
-    // Skip non-content messages
-    if (message.type === 'pong') return;
-
-    // Status messages don't have agentId
-    if (message.type === 'status') {
-      // Could update agent list here
-      return;
-    }
-
+  const handleEvent = useCallback((message: StreamEventMessage) => {
     const agentId = message.agentId;
 
     switch (message.type) {
       case 'text_delta': {
-        const existingBlockId = streamingBlocksRef.current.get(message.messageId);
+        const messageId = message.messageId ?? 'unknown';
+        const existingBlockId = streamingBlocksRef.current.get(messageId);
         if (existingBlockId) {
-          // Append to existing block
-          setBlocks(prev => prev.map(block => {
-            if (block.id === existingBlockId) {
-              return { ...block, content: (block.content || '') + message.content };
-            }
-            return block;
-          }));
+          // Direct state update - React 18 batches automatically
+          setBlocks(prev => prev.map(block =>
+            block.id === existingBlockId
+              ? { ...block, content: (block.content || '') + (message.content ?? '') }
+              : block
+          ));
         } else {
           // Create new streaming block
           const blockId = addBlock({
@@ -81,42 +72,45 @@ export function useTerminal(): UseTerminalReturn {
             agentId,
             content: message.content,
             isStreaming: true,
-            messageId: message.messageId,
+            messageId,
           });
-          streamingBlocksRef.current.set(message.messageId, blockId);
+          streamingBlocksRef.current.set(messageId, blockId);
         }
         break;
       }
 
       case 'text_complete': {
-        const blockId = streamingBlocksRef.current.get(message.messageId);
+        const messageId = message.messageId ?? 'unknown';
+        const blockId = streamingBlocksRef.current.get(messageId);
         if (blockId) {
           updateBlock(blockId, { type: 'text', isStreaming: false });
-          streamingBlocksRef.current.delete(message.messageId);
+          streamingBlocksRef.current.delete(messageId);
         }
         break;
       }
 
       case 'tool_start': {
+        const toolUseId = message.toolUseId ?? crypto.randomUUID();
         const blockId = addBlock({
           type: 'tool_use',
           agentId,
-          toolUseId: message.toolUseId,
+          toolUseId,
           toolName: message.toolName,
           toolInput: message.input,
         });
-        toolBlocksRef.current.set(message.toolUseId, blockId);
+        toolBlocksRef.current.set(toolUseId, blockId);
         break;
       }
 
       case 'tool_result': {
-        const blockId = toolBlocksRef.current.get(message.toolUseId);
+        const toolUseId = message.toolUseId ?? '';
+        const blockId = toolBlocksRef.current.get(toolUseId);
         if (blockId) {
           updateBlock(blockId, {
             toolResult: message.result,
             toolError: message.isError,
           });
-          toolBlocksRef.current.delete(message.toolUseId);
+          toolBlocksRef.current.delete(toolUseId);
         }
         break;
       }
@@ -142,20 +136,23 @@ export function useTerminal(): UseTerminalReturn {
 
       case 'init': {
         // Only show init message when session ID actually changes
-        if (message.sessionId !== currentSessionIdRef.current) {
-          currentSessionIdRef.current = message.sessionId;
-          addBlock({
-            type: 'system',
-            agentId,
-            content: `Session initialized: ${message.sessionId.slice(0, 8)}...`,
-          });
+        const sessionId = message.sessionId ?? null;
+        if (sessionId !== currentSessionIdRef.current) {
+          currentSessionIdRef.current = sessionId;
+          if (sessionId) {
+            addBlock({
+              type: 'system',
+              agentId,
+              content: `Session initialized: ${sessionId.slice(0, 8)}...`,
+            });
+          }
         }
         break;
       }
 
       case 'turn_complete': {
-        if (message.inputTokens) {
-          setTokenCount(message.inputTokens);
+        if (typeof message.currentContextTokens === 'number') {
+          setTokenCount(message.currentContextTokens);
         }
         break;
       }
@@ -170,38 +167,39 @@ export function useTerminal(): UseTerminalReturn {
         break;
       }
 
-      case 'history': {
-        // Replace blocks with history from server (excluding summary blocks from main view)
-        const nonSummaryBlocks = message.blocks.filter((b: { type: string }) => b.type !== 'summary');
-        setBlocks(nonSummaryBlocks);
-        // Extract summary for right sidebar
-        const summaryBlock = message.blocks.find((b: { type: string }) => b.type === 'summary');
-        if (summaryBlock?.content) {
-          setSessionSummary(summaryBlock.content);
-        }
-        // Set token count from history
-        if (message.lastTokenCount) {
-          setTokenCount(message.lastTokenCount);
-        }
-        // Extract session ID from the last init block if present
-        const initBlocks = message.blocks.filter((b: { type: string; content?: string }) =>
-          b.type === 'system' && b.content?.includes('Session initialized')
-        );
-        const lastInit = initBlocks[initBlocks.length - 1];
-        if (lastInit?.content) {
-          const match = lastInit.content.match(/Session initialized: ([a-f0-9]+)/);
-          if (match) {
-            currentSessionIdRef.current = match[1];
-          }
-        }
-        break;
-      }
     }
   }, [addBlock, updateBlock]);
+
+  const applyHistory = useCallback((history: HistoryResult) => {
+    streamingBlocksRef.current.clear();
+    toolBlocksRef.current.clear();
+    const nonSummaryBlocks = history.blocks.filter((b) => b.type !== 'summary');
+    setBlocks(nonSummaryBlocks);
+
+    const summaryBlock = history.blocks.find((b) => b.type === 'summary');
+    if (summaryBlock?.content) {
+      setSessionSummary(summaryBlock.content);
+    } else {
+      setSessionSummary(null);
+    }
+
+    setTokenCount(history.lastContextTokens);
+
+    const initBlocks = history.blocks.filter((b) =>
+      b.type === 'system' && b.content?.includes('Session initialized')
+    );
+    const lastInit = initBlocks[initBlocks.length - 1];
+    if (lastInit?.content) {
+      const match = lastInit.content.match(/Session initialized: ([a-f0-9]+)/);
+      if (match) {
+        currentSessionIdRef.current = match[1];
+      }
+    }
+  }, []);
 
   const clearBlocks = useCallback((agentId: string) => {
     setBlocks(prev => prev.filter(b => b.agentId !== agentId));
   }, []);
 
-  return { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks };
+  return { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory, clearBlocks };
 }

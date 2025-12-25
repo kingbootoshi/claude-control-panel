@@ -13,7 +13,7 @@ Phase 1 (Ghost Alive + Streaming UI) is complete. Full bidirectional streaming w
 | Config module | `src/config.ts` | DONE |
 | Logger | `src/utils/logger.ts` | DONE |
 | Message queue | `src/message-queue.ts` | DONE |
-| Express + WebSocket | `src/server.ts` | DONE |
+| Express + tRPC (HTTP + WS) | `src/server.ts` | DONE |
 | Entry point | `src/index.ts` | DONE |
 | Claude Session (Agent SDK) | `src/claude-session.ts` | DONE |
 | Workspace setup | `scripts/setup.sh`, `~/claude-workspace/` | DONE |
@@ -22,8 +22,8 @@ Phase 1 (Ghost Alive + Streaming UI) is complete. Full bidirectional streaming w
 ### Frontend
 | Component | File | Status |
 |-----------|------|--------|
-| Type definitions | `web/src/types/` | DONE |
-| WebSocket hook | `web/src/hooks/useWebSocket.ts` | DONE |
+| Type definitions | `web/src/types.ts` | DONE |
+| tRPC client | `web/src/trpc.ts` | DONE |
 | Terminal state hook | `web/src/hooks/useTerminal.ts` | DONE |
 | Sidebar | `web/src/components/Sidebar/` | DONE |
 | TabBar | `web/src/components/TabBar.tsx` | DONE |
@@ -39,13 +39,10 @@ Phase 1 (Ghost Alive + Streaming UI) is complete. Full bidirectional streaming w
 Implemented Phase 1 Streaming Foundation:
 
 1. **Created typed message system**
-   - `types/messages.ts` - WebSocket protocol (ClientMessage, ServerMessage)
-   - `types/agents.ts` - Agent state (Agent, AgentConfig)
-   - `types/ui.ts` - Terminal blocks (TerminalBlock, TerminalBlockType)
+   - `types.ts` - UI types (Agent, TerminalBlock, StreamEventMessage)
 
 2. **Built React hooks**
-   - `useWebSocket` - Auto-reconnect, typed send
-   - `useTerminal` - Block state, streaming correlation via messageId
+   - `useTerminal` - Block state + streaming batching
 
 3. **Componentized UI**
    - Extracted Sidebar, TabBar, Terminal from monolithic App.tsx
@@ -93,8 +90,8 @@ Using `@anthropic-ai/claude-agent-sdk`:
 - View tool invocations with collapsible input/output
 - Markdown rendering (headers, code, lists, etc.)
 - Session persistence across daemon restarts
-- Auto-reconnect on connection loss
-- Keyboard shortcuts (Ctrl+N, Ctrl+1-9)
+- tRPC subscription stream over WebSocket
+- Keyboard shortcuts (Ctrl+1-9)
 
 ## Next Steps (Phase 2)
 
@@ -109,12 +106,12 @@ Using `@anthropic-ai/claude-agent-sdk`:
 ### Backend
 - **Entry**: `src/index.ts`
 - **Session**: `src/claude-session.ts` (Agent SDK)
-- **Server**: `src/server.ts` (Express + WS)
+- **Server**: `src/server.ts` (Express + tRPC)
 - **Queue**: `src/message-queue.ts`
 - **Config**: `src/config.ts`
 
 ### Frontend
-- **Types**: `web/src/types/`
+- **Types**: `web/src/types.ts`
 - **Hooks**: `web/src/hooks/`
 - **Components**: `web/src/components/`
 - **Styles**: `web/src/index.css`

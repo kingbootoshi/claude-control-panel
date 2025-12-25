@@ -1,51 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FolderIcon, FileIcon, ChevronLeftIcon, ChevronRightIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-interface FileEntry {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  children?: FileEntry[];
-}
+import { trpc } from '../../trpc';
+import type { FileEntry } from '../../types';
 
 interface FilesViewProps {
-  agentName: string;
+  agentId: string;
 }
 
-export function FilesView({ agentName }: FilesViewProps) {
-  const [files, setFiles] = useState<FileEntry[]>([]);
+export function FilesView({ agentId }: FilesViewProps) {
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
-  // Fetch file list
+  const filesQuery = trpc.files.list.useQuery({ agentId }, { enabled: Boolean(agentId) });
+  const fileQuery = trpc.files.read.useQuery(
+    { agentId, path: selectedFilePath || '' },
+    { enabled: Boolean(agentId && selectedFilePath) }
+  );
+
   useEffect(() => {
-    async function fetchFiles() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`/api/files/${agentName}`);
-        if (!res.ok) {
-          throw new Error('Failed to load files');
-        }
-        const data = await res.json();
-        setFiles(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load files');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchFiles();
-  }, [agentName]);
+    setCurrentPath([]);
+    setViewingFile(null);
+    setSelectedFilePath(null);
+  }, [agentId]);
 
   // Get files at current path
   const getCurrentFiles = (): FileEntry[] => {
-    let current = files;
+    let current = filesQuery.data ?? [];
     for (const segment of currentPath) {
       const found = current.find(f => f.name === segment && f.type === 'directory');
       if (found?.children) {
@@ -58,21 +41,13 @@ export function FilesView({ agentName }: FilesViewProps) {
   };
 
   // Handle file/folder click
-  const handleItemClick = async (item: FileEntry) => {
+  const handleItemClick = (item: FileEntry) => {
     if (item.type === 'directory') {
       setCurrentPath([...currentPath, item.name]);
     } else if (item.name.endsWith('.md')) {
-      // Load markdown file
-      try {
-        const filePath = [...currentPath, item.name].join('/');
-        const res = await fetch(`/api/files/${agentName}/${filePath}`);
-        if (!res.ok) throw new Error('Failed to load file');
-        const data = await res.json();
-        setFileContent(data.content);
-        setViewingFile(item.name);
-      } catch (err) {
-        setError('Failed to load file');
-      }
+      const filePath = [...currentPath, item.name].join('/');
+      setSelectedFilePath(filePath);
+      setViewingFile(item.name);
     }
   };
 
@@ -80,7 +55,7 @@ export function FilesView({ agentName }: FilesViewProps) {
   const handleBack = () => {
     if (viewingFile) {
       setViewingFile(null);
-      setFileContent('');
+      setSelectedFilePath(null);
     } else if (currentPath.length > 0) {
       setCurrentPath(currentPath.slice(0, -1));
     }
@@ -94,7 +69,7 @@ export function FilesView({ agentName }: FilesViewProps) {
 
     return (
       <div className="files-breadcrumb">
-        <span className="files-breadcrumb-root">{agentName}</span>
+        <span className="files-breadcrumb-root">{agentId}</span>
         {parts.map((part, i) => (
           <span key={i}>
             <span className="files-breadcrumb-separator">/</span>
@@ -117,7 +92,7 @@ export function FilesView({ agentName }: FilesViewProps) {
         </div>
         <div className="file-viewer">
           <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileQuery.data?.content || ''}</ReactMarkdown>
           </div>
         </div>
       </div>
@@ -136,15 +111,15 @@ export function FilesView({ agentName }: FilesViewProps) {
         {renderBreadcrumb()}
       </div>
 
-      {loading && (
+      {filesQuery.isLoading && (
         <div className="files-loading">Loading files...</div>
       )}
 
-      {error && (
-        <div className="files-error">{error}</div>
+      {filesQuery.error && (
+        <div className="files-error">{filesQuery.error.message}</div>
       )}
 
-      {!loading && !error && (
+      {!filesQuery.isLoading && !filesQuery.error && (
         <div className="files-list">
           {getCurrentFiles().length === 0 ? (
             <div className="files-empty">No files in this directory</div>

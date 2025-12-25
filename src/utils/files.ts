@@ -1,12 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-
-export interface FileEntry {
-  name: string;
-  path: string;
-  type: "file" | "directory";
-  children?: FileEntry[];
-}
+import type { FileEntry } from "../types";
 
 /**
  * List all files and directories in a workspace directory recursively
@@ -67,4 +61,14 @@ export async function readWorkspaceFile(filePath: string): Promise<string> {
 export function isPathSafe(basePath: string, requestedPath: string): boolean {
   const resolvedPath = path.resolve(basePath, requestedPath);
   return resolvedPath.startsWith(path.resolve(basePath));
+}
+
+export function sanitizeFilename(name: string): string {
+  const basename = path.basename(name);
+  return basename.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+export function estimateBase64Bytes(data: string): number {
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  return Math.floor((data.length * 3) / 4) - padding;
 }

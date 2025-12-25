@@ -1,18 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Agent } from './types/agents';
-import type { Attachment } from './types/messages';
-import { useWebSocket } from './hooks/useWebSocket';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Agent, AgentStatus, Attachment, StreamEventMessage } from './types';
 import { useTerminal } from './hooks/useTerminal';
+import { trpc } from './trpc';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { Terminal } from './components/Terminal';
 import { WarningBanner } from './components/WarningBanner';
 import { RightSidebar } from './components/RightSidebar';
+import { FileViewer } from './components/FileViewer';
 import { MobileHeader } from './components/MobileHeader';
 import { MobileNav, type MobileTab } from './components/MobileNav';
 import { QuickMenu } from './components/QuickMenu';
 import { FilesView } from './components/FilesView';
-import { FileViewer } from './components/FileViewer';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 const MOBILE_BREAKPOINT = 768;
@@ -34,19 +33,11 @@ function useIsMobile() {
 }
 
 export default function App() {
-  const [agents, setAgents] = useState<Agent[]>([
-    {
-      id: 'ghost',
-      name: 'Ghost',
-      status: 'online',
-      sessionId: null,
-      isTyping: false,
-      currentTool: null,
-    },
-  ]);
-
-  const [activeAgentId, setActiveAgentId] = useState('ghost');
+  const [activeAgentId, setActiveAgentId] = useState('');
   const [warningDismissed, setWarningDismissed] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<string | null>(null);
 
   // Mobile state
   const isMobile = useIsMobile();
@@ -54,10 +45,30 @@ export default function App() {
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 
   // Desktop file viewer state
-  const [viewingFile, setViewingFile] = useState<string | null>(null);
 
-  const { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
-  const { connected, send, connectionError } = useWebSocket(handleServerMessage);
+  const { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory } = useTerminal();
+
+  // Use ref to always have latest handleEvent in subscription callback
+  const handleEventRef = useRef<(event: StreamEventMessage) => void>(handleEvent);
+  useEffect(() => {
+    handleEventRef.current = handleEvent;
+  }, [handleEvent]);
+
+  const agentsQuery = trpc.agents.list.useQuery();
+  const sendMutation = trpc.chat.send.useMutation({
+    onError: (error) => setConnectionError(error.message),
+  });
+  const historyQuery = trpc.history.get.useQuery(
+    { agentId: activeAgentId },
+    { enabled: Boolean(activeAgentId) }
+  );
+
+  const agents: Agent[] = (agentsQuery.data ?? []).map((agent) => ({
+    ...agent,
+    status: agent.status as AgentStatus,
+    isTyping: false,
+    currentTool: null,
+  }));
 
   // Reset dismissed state when tokens drop below threshold
   useEffect(() => {
@@ -66,6 +77,50 @@ export default function App() {
     }
   }, [tokenCount]);
 
+  useEffect(() => {
+    if (agentsQuery.error) {
+      setConnectionError(agentsQuery.error.message);
+    }
+  }, [agentsQuery.error]);
+
+  useEffect(() => {
+    if (!agents.length) return;
+    if (!activeAgentId || !agents.some((agent) => agent.id === activeAgentId)) {
+      setActiveAgentId(agents[0].id);
+    }
+  }, [agents, activeAgentId]);
+
+  useEffect(() => {
+    setViewingFile(null);
+  }, [activeAgentId]);
+
+  useEffect(() => {
+    if (historyQuery.data) {
+      applyHistory(historyQuery.data);
+    }
+  }, [historyQuery.data, applyHistory]);
+
+  trpc.chat.events.useSubscription(
+    { agentId: activeAgentId },
+    {
+      enabled: Boolean(activeAgentId),
+      onStarted: () => {
+        setConnected(true);
+        setConnectionError(null);
+      },
+      onError: (error) => {
+        setConnected(false);
+        setConnectionError(error.message);
+      },
+      onData: (event) => {
+        handleEventRef.current(event);
+      },
+      onComplete: () => {
+        setConnected(false);
+      },
+    }
+  );
+
   const agentBlocks = blocks.filter(b => b.agentId === activeAgentId);
 
   // Keyboard shortcuts (desktop only)
@@ -73,11 +128,6 @@ export default function App() {
     if (isMobile) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+N or Cmd+N - new agent
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        addNewAgent();
-      }
       // Ctrl+1-9 - switch tabs
       if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
         e.preventDefault();
@@ -86,40 +136,11 @@ export default function App() {
           setActiveAgentId(agents[index].id);
         }
       }
-      // Ctrl+Tab - cycle tabs
-      if (e.ctrlKey && e.key === 'Tab') {
-        e.preventDefault();
-        const currentIndex = agents.findIndex(a => a.id === activeAgentId);
-        const nextIndex = (currentIndex + 1) % agents.length;
-        setActiveAgentId(agents[nextIndex].id);
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [agents, activeAgentId, isMobile]);
-
-  const addNewAgent = useCallback(() => {
-    const newAgent: Agent = {
-      id: crypto.randomUUID(),
-      name: `agent-${agents.length + 1}`,
-      status: 'online',
-      sessionId: null,
-      isTyping: false,
-      currentTool: null,
-    };
-    setAgents(prev => [...prev, newAgent]);
-    setActiveAgentId(newAgent.id);
-  }, [agents.length]);
-
-  const closeAgent = useCallback((id: string) => {
-    if (agents.length <= 1) return;
-    setAgents(prev => prev.filter(a => a.id !== id));
-    if (activeAgentId === id) {
-      setActiveAgentId(agents[0].id === id ? agents[1].id : agents[0].id);
-    }
-    clearBlocks(id);
-  }, [agents, activeAgentId, clearBlocks]);
 
   const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
     if ((!content.trim() && !attachments?.length) || !connected) return;
@@ -128,21 +149,19 @@ export default function App() {
     addUserCommand(activeAgentId, content, attachments);
 
     // Send to backend
-    send({
-      type: 'user_message',
+    sendMutation.mutate({
       agentId: activeAgentId,
       content,
       attachments,
     });
-  }, [activeAgentId, connected, send, addUserCommand]);
+  }, [activeAgentId, connected, sendMutation, addUserCommand]);
 
   const handleCompact = useCallback(() => {
-    send({
-      type: 'user_message',
+    sendMutation.mutate({
       agentId: activeAgentId,
       content: '/compact',
     });
-  }, [activeAgentId, send]);
+  }, [activeAgentId, sendMutation]);
 
   // Handle mobile tab changes
   const handleMobileTabChange = useCallback((tab: MobileTab) => {
@@ -183,8 +202,8 @@ export default function App() {
             />
           )}
 
-          {mobileTab === 'files' && (
-            <FilesView agentName={activeAgent?.name || 'Ghost'} />
+          {mobileTab === 'files' && activeAgent && (
+            <FilesView agentId={activeAgent.id} />
           )}
         </main>
 
@@ -223,8 +242,6 @@ export default function App() {
           agents={agents}
           activeAgentId={activeAgentId}
           onTabSelect={setActiveAgentId}
-          onTabClose={closeAgent}
-          onNewTab={addNewAgent}
           tokenCount={tokenCount}
           onCompact={handleCompact}
         />
@@ -237,9 +254,9 @@ export default function App() {
           />
         )}
 
-        {viewingFile ? (
+        {viewingFile && activeAgent ? (
           <FileViewer
-            agentName={activeAgent?.name || 'Ghost'}
+            agentId={activeAgent.id}
             filePath={viewingFile}
             onClose={() => setViewingFile(null)}
           />
@@ -253,11 +270,13 @@ export default function App() {
         )}
       </main>
 
-      <RightSidebar
-        summary={sessionSummary}
-        agentName={activeAgent?.name || 'Ghost'}
-        onFileSelect={setViewingFile}
-      />
+      {activeAgent && (
+        <RightSidebar
+          summary={sessionSummary}
+          agentId={activeAgent.id}
+          onFileSelect={setViewingFile}
+        />
+      )}
     </div>
   );
 }

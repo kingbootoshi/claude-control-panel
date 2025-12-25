@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AttachIcon, CloseIcon, FileIcon } from '../Icons';
-import type { Attachment } from '../../types/messages';
+import type { Attachment } from '../../types';
 
 interface TerminalInputProps {
   onSubmit: (content: string, attachments?: Attachment[]) => void;

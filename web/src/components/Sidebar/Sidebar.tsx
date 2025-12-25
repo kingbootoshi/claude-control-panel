@@ -1,4 +1,4 @@
-import type { Agent } from '../../types/agents';
+import type { Agent } from '../../types';
 import { CompactIcon } from '../Icons';
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
   };
+  const primaryAgentId = agents[0]?.id;
 
   return (
     <aside className="sidebar">
@@ -32,7 +33,7 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
             className={`sidebar-item ${activeAgentId === agent.id ? 'active' : ''}`}
             onClick={() => onAgentSelect(agent.id)}
           >
-            <span className="mono">{agent.id === 'ghost' ? '◇' : '○'}</span>
+            <span className="mono">{agent.id === primaryAgentId ? '◇' : '○'}</span>
             <span>{agent.name}</span>
             <span className={`status-dot ${agent.status}`} />
           </div>

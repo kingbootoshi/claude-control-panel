@@ -2,27 +2,10 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { createLogger } from "./utils/logger";
+import { config } from "./config";
+import type { HistoryResult, TerminalBlock } from "./types";
 
 const log = createLogger("history");
-
-interface HistoryBlock {
-  id: string;
-  type: "user_command" | "text" | "tool_use" | "system" | "summary";
-  agentId: string;
-  timestamp: number;
-  content?: string;
-  toolName?: string;
-  toolInput?: unknown;
-  toolResult?: string;
-  toolUseId?: string;
-  toolError?: boolean;
-  attachments?: Array<{
-    type: "image" | "file";
-    name: string;
-    data?: string;
-    mimeType: string;
-  }>;
-}
 
 interface SDKContentBlock {
   type: string;
@@ -126,19 +109,14 @@ function parseToolResultContent(content: SDKContentBlock["content"]): string {
   return String(content || "");
 }
 
-export interface SessionHistoryResult {
-  blocks: HistoryBlock[];
-  lastTokenCount: number;
-}
-
 export async function loadSessionHistory(
   sessionId: string
-): Promise<SessionHistoryResult> {
+): Promise<HistoryResult> {
   const filePath = await findSessionFile(sessionId);
 
   if (!filePath) {
     log.info({ sessionId }, "No session file found");
-    return { blocks: [], lastTokenCount: 0 };
+    return { blocks: [], lastContextTokens: 0 };
   }
 
   log.info({ filePath, sessionId }, "Loading session history");
@@ -147,10 +125,10 @@ export async function loadSessionHistory(
     const fileContent = await fs.readFile(filePath, "utf-8");
     const lines = fileContent.trim().split("\n").filter(Boolean);
 
-    let blocks: HistoryBlock[] = [];
-    let toolBlockMap = new Map<string, HistoryBlock>();
-    const agentId = "ghost";
-    let lastTokenCount = 0;
+    let blocks: TerminalBlock[] = [];
+    let toolBlockMap = new Map<string, TerminalBlock>();
+    const agentId = config.primaryAgentId;
+    let lastContextTokens = 0;
     let lastCompactionIndex = -1;
 
     // First pass: find the last compaction point and extract summary
@@ -205,7 +183,7 @@ export async function loadSessionHistory(
             (usage.cache_creation_input_tokens || 0) +
             (usage.cache_read_input_tokens || 0);
           if (totalTokens > 0) {
-            lastTokenCount = totalTokens;
+            lastContextTokens = totalTokens;
           }
         }
 
@@ -302,7 +280,7 @@ export async function loadSessionHistory(
                   });
                 }
               } else if (block.type === "tool_use" && block.id) {
-                const toolBlock: HistoryBlock = {
+                const toolBlock: TerminalBlock = {
                   id: crypto.randomUUID(),
                   type: "tool_use",
                   agentId,
@@ -334,12 +312,21 @@ export async function loadSessionHistory(
       }
     }
 
-    log.info({ totalBlocks: blocks.length, lastTokenCount }, "Parsed history blocks (since last compaction)");
+    const summaryBlock = blocks.find((block) => block.type === "summary");
+    const contentBlocks = blocks.filter((block) => block.type !== "summary");
+    const limitedContentBlocks = contentBlocks.slice(
+      Math.max(0, contentBlocks.length - config.historyBlockLimit)
+    );
+    const finalBlocks = summaryBlock ? [summaryBlock, ...limitedContentBlocks] : limitedContentBlocks;
 
-    // Return all blocks since last compaction
-    return { blocks, lastTokenCount };
+    log.info(
+      { totalBlocks: finalBlocks.length, lastContextTokens, historyBlockLimit: config.historyBlockLimit },
+      "Parsed history blocks (since last compaction)"
+    );
+
+    return { blocks: finalBlocks, lastContextTokens };
   } catch (error) {
     log.error({ error, filePath }, "Failed to load session history");
-    return { blocks: [], lastTokenCount: 0 };
+    return { blocks: [], lastContextTokens: 0 };
   }
 }

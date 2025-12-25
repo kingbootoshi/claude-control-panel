@@ -4,14 +4,17 @@
 set -e
 
 # Configuration
-ASSISTANT_NAME="${ASSISTANT_NAME:-Ghost}"
-WORKSPACE="${CLAUDE_WORKSPACE:-$HOME/claude-workspace}"
+ASSISTANT_NAME="${ASSISTANT_NAME:-Overseer}"
+PRIMARY_AGENT_ID="${PRIMARY_AGENT_ID:-overseer}"
+WORKSPACE_ROOT="${CLAUDE_WORKSPACE:-$HOME/claude-workspace}"
+WORKSPACE="$WORKSPACE_ROOT/$PRIMARY_AGENT_ID"
 
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║           CLAUDE CONTROL PANEL - SETUP                    ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
 echo "Setting up workspace at: $WORKSPACE"
+echo "Primary agent: $PRIMARY_AGENT_ID"
 echo "Assistant name: $ASSISTANT_NAME"
 echo ""
 
@@ -129,7 +132,7 @@ echo ""
 echo "Workspace ready at: $WORKSPACE"
 echo ""
 echo "Next steps:"
-echo "  1. Set ANTHROPIC_API_KEY in your environment"
+echo "  1. Set CCP_AUTH_TOKEN in your environment"
 echo "  2. Run: bun run dev"
-echo "  3. Open: http://localhost:3000"
+echo "  3. Open: http://localhost:3847"
 echo ""

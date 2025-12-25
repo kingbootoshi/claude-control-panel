@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { TerminalBlock } from '../../types/ui';
+import type { TerminalBlock } from '../../types';
 import { MessageBlock } from './MessageBlock';
 
 interface TerminalOutputProps {

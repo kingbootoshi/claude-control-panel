@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Agent } from '../../types/agents';
+import type { Agent } from '../../types';
 import { CompactIcon, ChevronDownIcon, ChevronRightIcon, GearIcon, PlusIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

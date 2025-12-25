@@ -4,7 +4,7 @@
 
 ## Overview
 
-A persistent Claude daemon ("Ghost") running 24/7 on Mac Mini with a web-based Command Center UI. Uses the Claude Agent SDK which wraps the Claude CLI (OAuth authentication, no API key needed).
+A persistent Claude daemon ("Overseer" by default) running 24/7 on Mac Mini with a web-based Command Center UI. Uses the Claude Agent SDK which wraps the Claude CLI (OAuth authentication, no API key needed).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -12,26 +12,26 @@ A persistent Claude daemon ("Ghost") running 24/7 on Mac Mini with a web-based C
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │                   ghost-daemon                       │   │
-│  │  ┌──────────┐  ┌────────────────┐  ┌─────────────┐  │   │
-│  │  │ Express  │  │ ClaudeSession  │  │   Message   │  │   │
-│  │  │ Server   │──│ (Agent SDK)    │──│   Queue     │  │   │
-│  │  │  + WS    │  │                │  │             │  │   │
+│  │  ┌──────────────┐  ┌────────────────┐  ┌─────────────┐ │   │
+│  │  │ Express      │  │ ClaudeSession  │  │   Message   │ │   │
+│  │  │ + tRPC (WS)  │──│ (Agent SDK)    │──│   Queue     │ │   │
+│  │  └──────┬───────┘  └───────┬────────┘  └─────────────┘ │   │
 │  │  └────┬─────┘  └───────┬────────┘  └─────────────┘  │   │
 │  │       │                │                             │   │
 │  │       │                └── Uses ~/.claude OAuth      │   │
 │  │       │                                              │   │
 │  └───────┼──────────────────────────────────────────────┘   │
 │          │                                                  │
-│  ┌───────┴─────────────┐  ┌─────────────────────────────┐  │
-│  │   web/dist/         │  │   ~/claude-workspace/       │  │
-│  │   (Command Center)  │  │   ├── CLAUDE.md             │  │
-│  │                     │  │   ├── knowledge/            │  │
-│  │   React + Tailwind  │  │   ├── tools/                │  │
-│  │   Vibeship UI       │  │   └── state/session.json    │  │
-│  └─────────────────────┘  └─────────────────────────────┘  │
+│  ┌───────┴─────────────┐  ┌─────────────────────────────────┐│
+│  │   web/dist/         │  │   ~/claude-workspace/{agentId}/ ││
+│  │   (Command Center)  │  │   ├── CLAUDE.md                ││
+│  │                     │  │   ├── knowledge/               ││
+│  │   React + Tailwind  │  │   ├── tools/                   ││
+│  │   Vibeship UI       │  │   └── state/session.json       ││
+│  └─────────────────────┘  └─────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
            │
-           │ HTTP/WebSocket :3847
+           │ HTTP + WS /trpc :3847
            ▼
     ┌─────────────┐
     │   Browser   │
@@ -45,27 +45,28 @@ A persistent Claude daemon ("Ghost") running 24/7 on Mac Mini with a web-based C
 claude_control_panel/
 ├── src/                     # Daemon core (TypeScript/Bun)
 │   ├── index.ts             # Entry point, graceful shutdown
-│   ├── server.ts            # Express + WebSocket server
+│   ├── server.ts            # Express + tRPC server (HTTP + WS)
 │   ├── claude-session.ts    # Agent SDK integration
 │   ├── message-queue.ts     # Async queue for streaming input
 │   ├── config.ts            # Environment configuration
+│   ├── types.ts             # Shared daemon types
+│   ├── trpc/                # tRPC context + router
+│   │   ├── context.ts        # Auth + context
+│   │   └── router.ts         # Procedures
 │   └── utils/
 │       └── logger.ts        # Pino logger factory
 │
 ├── web/                     # Command Center UI (React + Vite)
 │   ├── src/
 │   │   ├── App.tsx          # Main layout shell
+│   │   ├── AuthGate.tsx     # Token prompt + provider
 │   │   ├── main.tsx         # React entry
 │   │   ├── index.css        # Tailwind + custom styles
 │   │   │
-│   │   ├── types/           # TypeScript type definitions
-│   │   │   ├── messages.ts  # WebSocket protocol types
-│   │   │   ├── agents.ts    # Agent state types
-│   │   │   ├── ui.ts        # UI-specific types
-│   │   │   └── index.ts     # Re-exports
+│   │   ├── types.ts         # UI types
+│   │   ├── trpc.ts          # tRPC client
 │   │   │
 │   │   ├── hooks/           # React hooks
-│   │   │   ├── useWebSocket.ts  # WebSocket connection + auto-reconnect
 │   │   │   └── useTerminal.ts   # Terminal block state management
 │   │   │
 │   │   └── components/      # UI components
@@ -112,10 +113,10 @@ Loads conversation history from Claude SDK's JSONL session files.
 - Recursive search via `findSessionFile()` to locate files
 - Two-pass parsing: builds blocks, matches tool_results to tool_use by ID
 - Filters image metadata strings (`[Image: original...]`)
-- Returns last N blocks (default 25, rolling window)
+- Returns last N blocks since compaction (default 300, configurable)
 
 **Exports:**
-- `loadSessionHistory(sessionId, limit)` → `HistoryBlock[]`
+- `loadSessionHistory(sessionId)` → `{ blocks, lastContextTokens }`
 
 #### `src/claude-session.ts` - Agent SDK Integration
 
@@ -141,35 +142,26 @@ The heart of the daemon. Manages the Claude session via `@anthropic-ai/claude-ag
 - `turn_complete` - Response complete (durationMs, costUsd)
 - `error` - Error occurred
 
-#### `src/server.ts` - Express + WebSocket Server
+#### `src/server.ts` - Express + tRPC Server
 
-HTTP server for static files + WebSocket for real-time chat.
+HTTP server for static files + tRPC (HTTP + WS) for real-time chat.
 
 **Endpoints:**
 - `GET /health` - Health check with session info
-- `GET /api/session` - Current session info
 - `GET /*` - Serves web UI from `web/dist/`
+- `/trpc` - tRPC HTTP + WebSocket entrypoint
 
-**WebSocket protocol:**
-```typescript
-// Client → Server
-{ type: 'user_message', agentId: string, content: string }
-{ type: 'ping' }
-
-// Server → Client
-{ type: 'status', agentId, timestamp, connected, agents[] }
-{ type: 'text_delta', agentId, timestamp, content, messageId }
-{ type: 'text_complete', agentId, timestamp, messageId }
-{ type: 'tool_start', agentId, timestamp, toolUseId, toolName, input }
-{ type: 'tool_result', agentId, timestamp, toolUseId, result, isError }
-{ type: 'turn_complete', agentId, timestamp, durationMs, costUsd }
-{ type: 'error', agentId, timestamp, content }
-{ type: 'pong', agentId, timestamp }
-```
+**tRPC procedures:**
+- `agents.list` - List available agents (single agent for now)
+- `history.get` - Load session history + last token count
+- `files.list` - List agent workspace files
+- `files.read` - Read a file from agent workspace
+- `chat.send` - Send message + attachments
+- `chat.events` - Subscription stream for events
 
 #### `src/message-queue.ts` - Async Message Queue
 
-Bridges WebSocket messages to Claude's streaming input.
+Bridges incoming chat messages to Claude's streaming input.
 
 **Key concepts:**
 - `push(item)` - Add message (delivers to waiting consumer or queues)
@@ -178,28 +170,16 @@ Bridges WebSocket messages to Claude's streaming input.
 
 ### Frontend
 
-#### `web/src/types/` - Type Definitions
+#### `web/src/types.ts` - UI Types
 
-**messages.ts** - WebSocket protocol types
-- `ClientMessage` = `UserMessagePayload | PingPayload`
-- `ServerMessage` = union of all server message types
-
-**agents.ts** - Agent state
 - `Agent` - id, name, status, sessionId, isTyping, currentTool
 - `AgentConfig` - name, workspacePath, model, systemPrompt
-
-**ui.ts** - Terminal rendering
-- `TerminalBlockType` - user_command, text, text_streaming, tool_use, etc.
 - `TerminalBlock` - id, type, agentId, timestamp, content, tool info, etc.
+- `StreamEventMessage` - tRPC subscription event payload
 
-#### `web/src/hooks/useWebSocket.ts` - WebSocket Hook
+#### `web/src/trpc.ts` - tRPC Client
 
-Manages WebSocket connection with auto-reconnect.
-
-**Returns:**
-- `connected` - Connection status
-- `send(message)` - Send typed message to server
-- `connectionError` - Error string if connection failed
+Creates HTTP + WebSocket links and injects auth token via headers/connectionParams.
 
 #### `web/src/hooks/useTerminal.ts` - Terminal State
 
@@ -209,12 +189,13 @@ Manages terminal block state with streaming correlation.
 - `blocks` - Array of TerminalBlock
 - `streamingBlocksRef` - Map<messageId, blockId> for streaming text
 - `toolBlocksRef` - Map<toolUseId, blockId> for tool results
-- Handles all ServerMessage types → creates/updates blocks
+- Batches streaming deltas via requestAnimationFrame
 
 **Returns:**
 - `blocks` - Current terminal blocks
 - `addUserCommand(agentId, content)` - Add user command block
-- `handleServerMessage(message)` - Process server message
+- `handleEvent(message)` - Process tRPC subscription event
+- `applyHistory(history)` - Apply initial history snapshot
 - `clearBlocks(agentId)` - Clear agent's blocks
 
 #### `web/src/components/Terminal/` - Terminal Components
@@ -281,9 +262,18 @@ Environment variables (from `.env` or launchd plist):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | 3847 | HTTP/WebSocket port |
-| `CLAUDE_WORKSPACE` | ~/claude-workspace | Ghost's home directory |
-| `ASSISTANT_NAME` | Claude | Display name for the assistant |
+| `HOST` | 127.0.0.1 | Server bind address |
+| `PORT` | 3847 | HTTP + WS port |
+| `PRIMARY_AGENT_ID` | overseer | Primary agent id |
+| `ASSISTANT_NAME` | Overseer | Display name for the assistant |
+| `CLAUDE_WORKSPACE` | ~/claude-workspace | Workspace root (per-agent dirs) |
+| `CCP_AUTH_TOKEN` | (required) | Auth token for HTTP + WS |
+| `ALLOWED_ORIGINS` | localhost/127.0.0.1 | Browser WS origin allowlist |
+| `MAX_WS_PAYLOAD_MB` | 10 | WS message size cap |
+| `UPLOAD_MAX_MB` | 10 | Attachment size cap |
+| `HISTORY_BLOCK_LIMIT` | 300 | Max blocks loaded from history |
+| `INFO_LEVEL` | info | Log level |
+| `WEB_TOOLS_ENABLED` | false | Enable WebFetch/WebSearch |
 | `MODEL` | claude-opus-4-5-20251101 | Claude model to use |
 
 **No API key needed** - uses OAuth from Claude CLI (`~/.claude/`).
@@ -308,8 +298,8 @@ React SPA with Tailwind CSS, Vibeship-inspired dark terminal aesthetic.
 - Markdown rendering (react-markdown)
 - Collapsible tool blocks
 - Streaming cursor animation
-- Auto-reconnect WebSocket
-- Keyboard shortcuts (Ctrl+N, Ctrl+1-9, Ctrl+Tab)
+- tRPC subscriptions (HTTP + WS)
+- Keyboard shortcuts (Ctrl+1-9)
 
 ## Session Persistence
 
@@ -346,16 +336,16 @@ See `documentation/features/` for detailed phase specs.
 
 ### Add a new message type
 
-1. Add to `StreamEvent` type in `src/claude-session.ts`
+1. Add to `StreamEvent` type in `src/types.ts`
 2. Emit in `handleMessage()` switch statement
-3. Add to `mapEventToMessage()` in `src/server.ts`
-4. Add to `ServerMessage` type in `web/src/types/messages.ts`
-5. Handle in `handleServerMessage()` in `web/src/hooks/useTerminal.ts`
+3. Add to `mapEventToMessage()` in `src/trpc/router.ts`
+4. Add to `StreamEventMessage` type in `web/src/types.ts`
+5. Handle in `handleEvent()` in `web/src/hooks/useTerminal.ts`
 6. Render in `MessageBlock.tsx` if needed
 
 ### Add a new terminal block type
 
-1. Add to `TerminalBlockType` in `web/src/types/ui.ts`
+1. Add to `TerminalBlockType` in `web/src/types.ts`
 2. Add fields to `TerminalBlock` interface if needed
 3. Handle creation in `useTerminal.ts`
 4. Add rendering case in `MessageBlock.tsx`
@@ -363,8 +353,8 @@ See `documentation/features/` for detailed phase specs.
 
 ### Modify Claude's behavior
 
-Edit `~/claude-workspace/CLAUDE.md` - loaded via `settingSources: ['project']`.
+Edit `~/claude-workspace/{agentId}/CLAUDE.md` - loaded via `settingSources: ['project']`.
 
 ### Add a new API endpoint
 
-Add route in `src/server.ts` before the wildcard `GET /*` catch-all.
+Add a new procedure in `src/trpc/router.ts` and update the client in `web/src/trpc.ts`.
