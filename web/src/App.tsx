@@ -12,6 +12,7 @@ import { MobileHeader } from './components/MobileHeader';
 import { MobileNav, type MobileTab } from './components/MobileNav';
 import { QuickMenu } from './components/QuickMenu';
 import { FilesView } from './components/FilesView';
+import { FileViewer } from './components/FileViewer';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 const MOBILE_BREAKPOINT = 768;
@@ -51,6 +52,9 @@ export default function App() {
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState<'chat' | 'files'>('chat');
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+
+  // Desktop file viewer state
+  const [viewingFile, setViewingFile] = useState<string | null>(null);
 
   const { blocks, tokenCount, sessionSummary, addUserCommand, handleServerMessage, clearBlocks } = useTerminal();
   const { connected, send, connectionError } = useWebSocket(handleServerMessage);
@@ -233,15 +237,27 @@ export default function App() {
           />
         )}
 
-        <Terminal
-          blocks={agentBlocks}
-          onSubmit={handleSubmit}
-          connected={connected}
-          connectionError={connectionError}
-        />
+        {viewingFile ? (
+          <FileViewer
+            agentName={activeAgent?.name || 'Ghost'}
+            filePath={viewingFile}
+            onClose={() => setViewingFile(null)}
+          />
+        ) : (
+          <Terminal
+            blocks={agentBlocks}
+            onSubmit={handleSubmit}
+            connected={connected}
+            connectionError={connectionError}
+          />
+        )}
       </main>
 
-      <RightSidebar summary={sessionSummary} />
+      <RightSidebar
+        summary={sessionSummary}
+        agentName={activeAgent?.name || 'Ghost'}
+        onFileSelect={setViewingFile}
+      />
     </div>
   );
 }
