@@ -67,3 +67,12 @@ export const ImageIcon = () => (
     <path d="M21 15l-5-5L5 21" />
   </svg>
 );
+
+export const CompactIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M4 14h6v6" />
+    <path d="M20 10h-6V4" />
+    <path d="M14 10l7-7" />
+    <path d="M3 21l7-7" />
+  </svg>
+);

@@ -118,6 +118,8 @@ export default function App() {
         agents={agents}
         activeAgentId={activeAgentId}
         onAgentSelect={setActiveAgentId}
+        onCompact={handleCompact}
+        tokenCount={tokenCount}
       />
 
       <main className="main-area">

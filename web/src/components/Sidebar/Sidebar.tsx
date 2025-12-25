@@ -1,13 +1,20 @@
 import type { Agent } from '../../types/agents';
-import { FolderIcon, FileIcon } from '../Icons';
+import { FolderIcon, FileIcon, CompactIcon } from '../Icons';
 
 interface SidebarProps {
   agents: Agent[];
   activeAgentId: string;
   onAgentSelect: (id: string) => void;
+  onCompact: () => void;
+  tokenCount: number;
 }
 
-export function Sidebar({ agents, activeAgentId, onAgentSelect }: SidebarProps) {
+export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount }: SidebarProps) {
+  const formatTokens = (count: number) => {
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+    return count.toString();
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -48,6 +55,26 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect }: SidebarProps) 
           <span>CLAUDE.md</span>
         </div>
       </div>
+
+      {/* Actions section */}
+      <div className="sidebar-section">
+        <div className="sidebar-section-title">Actions</div>
+        <button className="sidebar-action-btn" onClick={onCompact}>
+          <CompactIcon />
+          <span>Compact Session</span>
+          <span className="action-meta">{formatTokens(tokenCount)}</span>
+        </button>
+      </div>
+
+      {/* Future: Processes section placeholder */}
+      {/*
+      <div className="sidebar-section">
+        <div className="sidebar-section-title">Processes</div>
+        <div className="sidebar-item dim">
+          <span>No background tasks</span>
+        </div>
+      </div>
+      */}
     </aside>
   );
 }

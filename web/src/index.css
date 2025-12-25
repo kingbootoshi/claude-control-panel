@@ -877,3 +877,38 @@ body {
   font-size: 14px;
   margin: 0.5em 0;
 }
+
+/* Sidebar action buttons */
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 32px);
+  margin: 0 16px;
+  padding: 10px 12px;
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.sidebar-action-btn:hover {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--text);
+}
+
+.sidebar-action-btn svg {
+  flex-shrink: 0;
+  color: var(--amber);
+}
+
+.action-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+}
