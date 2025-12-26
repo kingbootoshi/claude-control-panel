@@ -113,3 +113,11 @@ export interface FileEntry {
   type: 'file' | 'directory';
   children?: FileEntry[];
 }
+
+export interface CCPConfig {
+  version: 1;
+  primaryAgent: {
+    id: string;
+    name: string;
+  };
+}

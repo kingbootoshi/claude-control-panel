@@ -40,11 +40,16 @@ export function FilesView({ agentId }: FilesViewProps) {
     return current;
   };
 
+  // Check if file is viewable
+  const isViewableFile = (name: string) => {
+    return name.endsWith('.md') || name.endsWith('.json');
+  };
+
   // Handle file/folder click
   const handleItemClick = (item: FileEntry) => {
     if (item.type === 'directory') {
       setCurrentPath([...currentPath, item.name]);
-    } else if (item.name.endsWith('.md')) {
+    } else if (isViewableFile(item.name)) {
       const filePath = [...currentPath, item.name].join('/');
       setSelectedFilePath(filePath);
       setViewingFile(item.name);
@@ -80,6 +85,33 @@ export function FilesView({ agentId }: FilesViewProps) {
     );
   };
 
+  // Render file content based on type
+  const renderFileContent = () => {
+    const content = fileQuery.data?.content || '';
+
+    if (viewingFile?.endsWith('.json')) {
+      // Format JSON nicely
+      try {
+        const parsed = JSON.parse(content);
+        return (
+          <pre className="json-content">
+            {JSON.stringify(parsed, null, 2)}
+          </pre>
+        );
+      } catch {
+        // If JSON parse fails, show as plain text
+        return <pre className="json-content">{content}</pre>;
+      }
+    }
+
+    // Default: render as markdown
+    return (
+      <div className="markdown-content">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      </div>
+    );
+  };
+
   // File viewer mode
   if (viewingFile) {
     return (
@@ -91,9 +123,7 @@ export function FilesView({ agentId }: FilesViewProps) {
           {renderBreadcrumb()}
         </div>
         <div className="file-viewer">
-          <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileQuery.data?.content || ''}</ReactMarkdown>
-          </div>
+          {renderFileContent()}
         </div>
       </div>
     );

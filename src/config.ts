@@ -1,8 +1,11 @@
 import { config as loadEnv } from "dotenv";
 import path from "path";
 import os from "os";
+import { loadConfig, type CCPConfig } from "./config-store";
 
 loadEnv();
+
+export type { CCPConfig };
 
 function expandPath(p: string): string {
   if (p.startsWith("~")) {
@@ -90,6 +93,31 @@ export const config = {
 
 export function getAgentWorkspace(agentId: string): string {
   return path.join(config.workspaceRoot, agentId);
+}
+
+/**
+ * Get runtime agent config from config file, falling back to env vars.
+ * Returns null if no config exists and no env vars are set.
+ */
+export async function getRuntimeConfig(): Promise<{
+  primaryAgentId: string;
+  assistantName: string;
+} | null> {
+  const ccpConfig = await loadConfig();
+  if (ccpConfig) {
+    return {
+      primaryAgentId: ccpConfig.primaryAgent.id,
+      assistantName: ccpConfig.primaryAgent.name,
+    };
+  }
+  // Fall back to env vars if they're explicitly set
+  if (process.env.PRIMARY_AGENT_ID || process.env.ASSISTANT_NAME) {
+    return {
+      primaryAgentId: config.primaryAgentId,
+      assistantName: config.assistantName,
+    };
+  }
+  return null;
 }
 
 export type Config = typeof config;

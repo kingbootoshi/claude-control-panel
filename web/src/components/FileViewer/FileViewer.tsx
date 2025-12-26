@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CloseIcon } from '../Icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -45,6 +46,17 @@ export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
   );
 
   const isJson = filePath.endsWith('.json');
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   return (
     <div className="file-viewer-panel">

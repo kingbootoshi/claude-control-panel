@@ -13,6 +13,7 @@ interface QuickMenuProps {
   sessionSummary: string | null;
   tokenCount: number;
   onCompact: () => void;
+  onSettingsClick: () => void;
 }
 
 export function QuickMenu({
@@ -24,6 +25,7 @@ export function QuickMenu({
   sessionSummary,
   tokenCount,
   onCompact,
+  onSettingsClick,
 }: QuickMenuProps) {
   const [contextExpanded, setContextExpanded] = useState(false);
 
@@ -110,7 +112,7 @@ export function QuickMenu({
             <span className="quick-menu-item-label">New Chat</span>
           </button>
 
-          <button className="quick-menu-item" disabled>
+          <button className="quick-menu-item" onClick={() => { onSettingsClick(); onClose(); }}>
             <span className="quick-menu-item-icon"><GearIcon /></span>
             <span className="quick-menu-item-label">Settings</span>
           </button>

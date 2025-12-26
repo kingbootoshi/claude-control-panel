@@ -2,10 +2,10 @@ import type { CreateExpressContextOptions } from "@trpc/server/adapters/express"
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
 import { TRPCError } from "@trpc/server";
 import { config } from "../config";
-import type { SessionLike } from "../types";
+import type { SessionManagerLike } from "../types";
 
 export interface Context {
-  session: SessionLike;
+  sessionManager: SessionManagerLike;
   agentId: string;
   assistantName: string;
 }
@@ -44,15 +44,18 @@ function assertValidToken(token: string | null): void {
   }
 }
 
-export function createContextFactory(session: SessionLike) {
+export function createContextFactory(sessionManager: SessionManagerLike) {
   return {
     createHttpContext({ req }: CreateExpressContextOptions): Context {
       const token = getAuthTokenFromHeaders(req);
       assertValidToken(token);
+
+      // Get runtime config or fall back to static config
+      const runtimeConfig = sessionManager.getConfig();
       return {
-        session,
-        agentId: config.primaryAgentId,
-        assistantName: config.assistantName,
+        sessionManager,
+        agentId: runtimeConfig?.primaryAgentId ?? config.primaryAgentId,
+        assistantName: runtimeConfig?.assistantName ?? config.assistantName,
       };
     },
 
@@ -60,10 +63,13 @@ export function createContextFactory(session: SessionLike) {
       assertOriginAllowed(opts.req.headers.origin);
       const token = getAuthTokenFromConnectionParams(opts.info.connectionParams);
       assertValidToken(token);
+
+      // Get runtime config or fall back to static config
+      const runtimeConfig = sessionManager.getConfig();
       return {
-        session,
-        agentId: config.primaryAgentId,
-        assistantName: config.assistantName,
+        sessionManager,
+        agentId: runtimeConfig?.primaryAgentId ?? config.primaryAgentId,
+        assistantName: runtimeConfig?.assistantName ?? config.assistantName,
       };
     },
   };

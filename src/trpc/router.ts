@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { config, getAgentWorkspace } from "../config";
+import { loadConfig, type CCPConfig } from "../config-store";
 import { loadSessionHistory } from "../history";
 import { listWorkspaceFiles, readWorkspaceFile, isPathSafe, sanitizeFilename, estimateBase64Bytes } from "../utils/files";
 import type { ContentBlock, ImageMediaType, StreamEvent, StreamEventMessage } from "../types";
@@ -44,14 +45,39 @@ function mapEventToMessage(event: StreamEvent, agentId: string): StreamEventMess
 }
 
 export const appRouter = t.router({
+  // Config management
+  config: t.router({
+    get: t.procedure.query(async (): Promise<CCPConfig | null> => {
+      return loadConfig();
+    }),
+
+    save: t.procedure
+      .input(z.object({
+        name: z.string().min(1).max(50),
+        claudeMd: z.string().max(50000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await ctx.sessionManager.setupAgent(input.name, input.claudeMd);
+        return { success: true, agentId: result.agentId };
+      }),
+  }),
+
+  // Session management
+  session: t.router({
+    restart: t.procedure.mutation(async ({ ctx }) => {
+      await ctx.sessionManager.restart();
+      return { success: true };
+    }),
+  }),
+
   agents: t.router({
     list: t.procedure.query(({ ctx }) => {
       return [
         {
           id: ctx.agentId,
           name: ctx.assistantName,
-          sessionId: ctx.session.getSessionId(),
-          status: "online",
+          sessionId: ctx.sessionManager.getSessionId(),
+          status: ctx.sessionManager.hasConfig() ? "online" : "offline",
         },
       ];
     }),
@@ -60,7 +86,7 @@ export const appRouter = t.router({
   history: t.router({
     get: t.procedure.input(z.object({ agentId: agentIdSchema })).query(async ({ ctx, input }) => {
       assertAgentAccess(ctx, input.agentId);
-      const sessionId = ctx.session.getSessionId();
+      const sessionId = ctx.sessionManager.getSessionId();
       if (!sessionId) {
         return { blocks: [], lastContextTokens: 0 };
       }
@@ -142,10 +168,10 @@ export const appRouter = t.router({
 
         if (contentBlocks.length > 0) {
           log.info({ blocks: contentBlocks.length, agentId: input.agentId }, "Multimodal message received");
-          await ctx.session.sendMessage(contentBlocks);
+          await ctx.sessionManager.sendMessage(contentBlocks);
         } else if (content.trim()) {
           log.info({ chars: content.length, agentId: input.agentId }, "User message received");
-          await ctx.session.sendMessage(content);
+          await ctx.sessionManager.sendMessage(content);
         }
       }),
 
@@ -159,10 +185,10 @@ export const appRouter = t.router({
           emit.next(mapEventToMessage(event, input.agentId));
         };
 
-        ctx.session.on("event", handler);
+        ctx.sessionManager.on("event", handler);
 
         return () => {
-          ctx.session.off("event", handler);
+          ctx.sessionManager.off("event", handler);
         };
       });
     }),

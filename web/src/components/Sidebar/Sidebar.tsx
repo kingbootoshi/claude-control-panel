@@ -1,15 +1,16 @@
 import type { Agent } from '../../types';
-import { CompactIcon } from '../Icons';
+import { CompactIcon, GearIcon } from '../Icons';
 
 interface SidebarProps {
   agents: Agent[];
   activeAgentId: string;
   onAgentSelect: (id: string) => void;
   onCompact: () => void;
+  onSettingsClick: () => void;
   tokenCount: number;
 }
 
-export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, tokenCount }: SidebarProps) {
+export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, onSettingsClick, tokenCount }: SidebarProps) {
   const formatTokens = (count: number) => {
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
@@ -47,6 +48,10 @@ export function Sidebar({ agents, activeAgentId, onAgentSelect, onCompact, token
           <CompactIcon />
           <span>Compact Session</span>
           <span className="action-meta">{formatTokens(tokenCount)}</span>
+        </button>
+        <button className="sidebar-action-btn" onClick={onSettingsClick}>
+          <GearIcon />
+          <span>Settings</span>
         </button>
       </div>
     </aside>

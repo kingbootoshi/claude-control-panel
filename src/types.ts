@@ -123,3 +123,10 @@ export interface SessionLike {
   on(event: "event", listener: (event: StreamEvent) => void): this;
   off(event: "event", listener: (event: StreamEvent) => void): this;
 }
+
+export interface SessionManagerLike extends SessionLike {
+  restart(): Promise<void>;
+  setupAgent(name: string, claudeMd: string): Promise<{ agentId: string }>;
+  getConfig(): { primaryAgentId: string; assistantName: string } | null;
+  hasConfig(): boolean;
+}

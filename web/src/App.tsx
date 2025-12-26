@@ -12,6 +12,8 @@ import { MobileHeader } from './components/MobileHeader';
 import { MobileNav, type MobileTab } from './components/MobileNav';
 import { QuickMenu } from './components/QuickMenu';
 import { FilesView } from './components/FilesView';
+import { SetupWizard } from './components/SetupWizard';
+import { Settings } from './components/Settings';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 const MOBILE_BREAKPOINT = 768;
@@ -38,15 +40,18 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Mobile state
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState<'chat' | 'files'>('chat');
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 
-  // Desktop file viewer state
+  // Config query - determines if setup wizard is needed
+  const configQuery = trpc.config.get.useQuery();
+  const utils = trpc.useUtils();
 
-  const { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory } = useTerminal();
+  const { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory, clearBlocks } = useTerminal();
 
   // Use ref to always have latest handleEvent in subscription callback
   const handleEventRef = useRef<(event: StreamEventMessage) => void>(handleEvent);
@@ -174,6 +179,50 @@ export default function App() {
 
   const activeAgent = agents.find(a => a.id === activeAgentId);
 
+  // Handler for session restart after settings save
+  const handleSessionRestart = useCallback(() => {
+    // Invalidate all queries to get fresh data
+    utils.invalidate();
+    // Clear terminal blocks for fresh start
+    if (activeAgentId) {
+      clearBlocks(activeAgentId);
+    }
+  }, [utils, clearBlocks, activeAgentId]);
+
+  // Show loading while checking config
+  if (configQuery.isLoading) {
+    return (
+      <div className="setup-wizard">
+        <div className="setup-card">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No config = show setup wizard
+  if (!configQuery.data) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          configQuery.refetch();
+          utils.invalidate();
+        }}
+      />
+    );
+  }
+
+  // Show settings panel (works for both mobile and desktop)
+  if (showSettings) {
+    return (
+      <Settings
+        config={configQuery.data}
+        onClose={() => setShowSettings(false)}
+        onRestart={handleSessionRestart}
+      />
+    );
+  }
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -221,6 +270,7 @@ export default function App() {
           sessionSummary={sessionSummary}
           tokenCount={tokenCount}
           onCompact={handleCompact}
+          onSettingsClick={() => setShowSettings(true)}
         />
       </div>
     );
@@ -234,6 +284,7 @@ export default function App() {
         activeAgentId={activeAgentId}
         onAgentSelect={setActiveAgentId}
         onCompact={handleCompact}
+        onSettingsClick={() => setShowSettings(true)}
         tokenCount={tokenCount}
       />
 
