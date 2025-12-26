@@ -1881,11 +1881,33 @@ body {
 
 .setup-wizard {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
   background: var(--void-bg);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Override viewport lock for setup wizard - needs to scroll */
+@media (max-width: 768px) {
+  html:has(.setup-wizard),
+  html:has(.setup-wizard) body,
+  html:has(.setup-wizard) #root {
+    position: static;
+    overflow: auto;
+    overscroll-behavior: auto;
+  }
+
+  .setup-wizard {
+    min-height: 100dvh;
+    min-height: 100vh;
+    align-items: flex-start;
+    padding-top: max(20px, env(safe-area-inset-top, 20px));
+  }
 }
 
 .setup-card {
