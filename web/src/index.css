@@ -696,6 +696,19 @@ body {
 }
 
 @media (max-width: 768px) {
+  /* ===== Viewport Lock ===== */
+  html, body, #root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   /* Hide desktop sidebars on mobile */
   .sidebar,
   .right-sidebar,
@@ -703,18 +716,24 @@ body {
     display: none;
   }
 
-  /* Mobile layout */
+  /* ===== App Layout with dvh ===== */
   .app-layout.mobile {
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100dvh;
+    height: 100vh; /* Fallback */
+    overflow: hidden;
   }
 
   /* Mobile header - simplified */
   .mobile-header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
     background: var(--void-surface);
     border-bottom: 1px solid var(--void-border);
   }
@@ -746,23 +765,73 @@ body {
     color: var(--text-dim);
   }
 
-  /* Mobile main area */
+  /* ===== Main area - flex child that shrinks ===== */
   .main-area.mobile {
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow: hidden;
-    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
   }
 
-  /* Mobile chat area */
+  /* ===== Terminal panel - flex child that shrinks ===== */
+  .terminal-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ===== Scrollable areas with containment ===== */
   .terminal-output {
+    flex: 1;
+    min-height: 0;
     padding: 16px;
     font-size: 15px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
+  /* ===== Input area - never shrinks ===== */
   .terminal-input-area {
+    flex-shrink: 0;
     padding: 12px 16px;
+  }
+
+  /* ===== iOS zoom prevention - font-size 16px minimum ===== */
+  .terminal-input,
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* ===== Touch action for interactive elements ===== */
+  button,
+  .mobile-nav-item,
+  .quick-menu-item,
+  .file-item {
+    touch-action: manipulation;
+  }
+
+  /* ===== Files view ===== */
+  .files-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .files-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   /* Code blocks scroll horizontally */
@@ -784,12 +853,12 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
+    height: calc(60px + env(safe-area-inset-bottom, 0));
     background: #050505;
     border-top: 1px solid var(--void-border);
     justify-content: space-around;
     align-items: center;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0);
     z-index: 50;
   }
 
@@ -853,7 +922,9 @@ body {
   transition: transform 0.3s ease;
   max-height: 70vh;
   overflow-y: auto;
-  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom, 0);
   z-index: 101;
 }
 
@@ -1518,6 +1589,37 @@ body {
 .attach-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Send button */
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: var(--void-deep);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  flex-shrink: 0;
+  touch-action: manipulation;
+}
+
+.send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: var(--void-border);
+}
+
+.send-btn:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.send-btn:not(:disabled):active {
+  transform: scale(0.95);
 }
 
 /* Token display */

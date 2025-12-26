@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { AttachIcon, CloseIcon, FileIcon } from '../Icons';
+import { AttachIcon, CloseIcon, FileIcon, SendIcon } from '../Icons';
 import type { Attachment } from '../../types';
 
 interface TerminalInputProps {
@@ -84,19 +84,25 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
     e.target.value = '';
   }, [addFiles]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (input.trim() || attachments.length > 0) {
-        onSubmit(input, attachments.length > 0 ? attachments : undefined);
-        setInput('');
-        setAttachments([]);
-        // Reset textarea height
-        if (inputRef.current) {
-          inputRef.current.style.height = 'auto';
-        }
+  const handleSend = useCallback(() => {
+    if (input.trim() || attachments.length > 0) {
+      onSubmit(input, attachments.length > 0 ? attachments : undefined);
+      setInput('');
+      setAttachments([]);
+      // Reset textarea height
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
       }
     }
+  }, [input, attachments, onSubmit]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Cmd+Enter or Ctrl+Enter sends (for power users)
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSend();
+    }
+    // Plain Enter = newline (default behavior, no prevention)
   };
 
   return (
@@ -158,6 +164,14 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
             onChange={handleFileChange}
             style={{ display: 'none' }}
           />
+          <button
+            className="send-btn"
+            onClick={handleSend}
+            disabled={disabled || (!input.trim() && attachments.length === 0)}
+            aria-label="Send message"
+          >
+            <SendIcon />
+          </button>
         </div>
       </div>
     </div>
