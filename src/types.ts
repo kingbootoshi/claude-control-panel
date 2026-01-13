@@ -1,10 +1,27 @@
-export type AgentStatus = "online" | "offline" | "busy";
+export type TerminalStatus = "starting" | "running" | "idle" | "closed" | "dead";
 
-export interface AgentInfo {
+// Project - tracked directory on filesystem
+export interface Project {
+  id: string;              // slug (e.g., "claude-control-panel")
+  name: string;            // display name
+  path: string;            // absolute filesystem path
+  createdAt: string;       // ISO date
+  lastOpenedAt: string;    // ISO date
+}
+
+// Terminal - running Claude session
+export interface Terminal {
   id: string;
-  name: string;
-  sessionId: string | null;
-  status: AgentStatus;
+  projectId: string | null;  // null = non-project chat (workspace root)
+  sessionId: string | null;  // Claude's session ID for resume
+  status: TerminalStatus;
+  createdAt: string;         // ISO date
+}
+
+// Terminal event with terminalId for routing
+export interface TerminalEvent {
+  terminalId: string;
+  event: StreamEvent;
 }
 
 export interface Attachment {
@@ -28,7 +45,7 @@ export type TerminalBlockType =
 export interface TerminalBlock {
   id: string;
   type: TerminalBlockType;
-  agentId: string;
+  terminalId: string;  // was agentId
   timestamp: number;
 
   // Content varies by type
@@ -108,13 +125,20 @@ export interface StreamEvent {
 }
 
 export interface StreamEventMessage extends StreamEvent {
-  agentId: string;
+  terminalId: string;  // was agentId
   timestamp: string;
 }
 
 export interface HistoryResult {
   blocks: TerminalBlock[];
   lastContextTokens: number;
+}
+
+// ClaudeSession options - cwd and session file location
+export interface ClaudeSessionOptions {
+  cwd: string;           // working directory (project path or workspace root)
+  sessionFile: string;   // where to persist session ID
+  resumeSessionId?: string;
 }
 
 export interface SessionLike {
@@ -124,6 +148,22 @@ export interface SessionLike {
   off(event: "event", listener: (event: StreamEvent) => void): this;
 }
 
+// Terminal manager interface - manages multiple sessions
+export interface TerminalManagerLike {
+  spawn(projectId: string | null): Promise<string>;
+  send(terminalId: string, content: MessageContent): Promise<void>;
+  close(terminalId: string): Promise<void>;
+  resume(terminalId: string): Promise<void>;
+  kill(terminalId: string): Promise<void>;
+  list(): Terminal[];
+  get(terminalId: string): Terminal | undefined;
+  hasConfig(): boolean;
+  getAssistantName(): string;
+  on(event: "terminal_event", listener: (data: TerminalEvent) => void): this;
+  off(event: "terminal_event", listener: (data: TerminalEvent) => void): this;
+}
+
+// Legacy interface - kept for backward compatibility during migration
 export interface SessionManagerLike extends SessionLike {
   restart(): Promise<void>;
   setupAgent(name: string, claudeMd: string): Promise<{ agentId: string }>;

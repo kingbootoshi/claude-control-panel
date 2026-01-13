@@ -176,6 +176,68 @@ body {
   box-shadow: 0 0 6px var(--green);
 }
 
+.sidebar-item .status-dot.running {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.sidebar-item .status-dot.starting {
+  background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+}
+
+.sidebar-item .status-dot.idle {
+  background: var(--text-dim);
+}
+
+.sidebar-item .status-dot.closed {
+  background: var(--text-dim);
+  opacity: 0.5;
+}
+
+.sidebar-item.closed {
+  opacity: 0.6;
+}
+
+.sidebar-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-item-main span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-item-action {
+  display: none;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.sidebar-item:hover .sidebar-item-action {
+  display: flex;
+}
+
+.sidebar-item-action:hover {
+  background: var(--void-elevated);
+  color: var(--text);
+}
+
+.sidebar-item-action.danger:hover {
+  color: var(--red);
+}
+
 /* Main area */
 .main-area {
   flex: 1;
@@ -716,18 +778,19 @@ body {
     display: none;
   }
 
-  /* ===== App Layout with dvh ===== */
+  /* ===== App Layout with VisualViewport ===== */
   .app-layout.mobile {
     position: fixed;
     inset: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    height: 100vh; /* Fallback */
+    display: grid;
+    /* Header | Content | Bottom Nav */
+    grid-template-rows: auto 1fr auto; 
+    /* Use VisualViewport height if available, else fallback */
+    height: var(--app-height, 100dvh);
     overflow: hidden;
   }
 
-  /* Mobile header - simplified */
+  /* Mobile header */
   .mobile-header {
     flex-shrink: 0;
     display: flex;
@@ -736,6 +799,7 @@ body {
     padding-top: max(12px, env(safe-area-inset-top, 12px));
     background: var(--void-surface);
     border-bottom: 1px solid var(--void-border);
+    z-index: 10;
   }
 
   .mobile-header-left {
@@ -765,14 +829,30 @@ body {
     color: var(--text-dim);
   }
 
+  .mobile-header-back {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px;
+    margin-right: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-header-back:hover {
+    color: var(--accent);
+  }
+
   /* ===== Main area - flex child that shrinks ===== */
   .main-area.mobile {
-    flex: 1;
+    min-height: 0; /* Allow shrinking */
     display: flex;
     flex-direction: column;
-    min-height: 0;
     overflow: hidden;
-    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
+    padding-bottom: 0; /* No more padding hack */
+    position: relative;
   }
 
   /* ===== Terminal panel - flex child that shrinks ===== */
@@ -799,7 +879,14 @@ body {
   .terminal-input-area {
     flex-shrink: 0;
     padding: 12px 16px;
+    /* Add safe area only when keyboard is NOT open or nav is hidden */
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 12px));
+    background: var(--void-surface);
+    z-index: 20;
   }
+  
+  /* When keyboard is open, we might want less bottom padding, 
+     but keeping safe-area is generally fine as it will be 0 or small. */
 
   /* ===== iOS zoom prevention - font-size 16px minimum ===== */
   .terminal-input,
@@ -849,18 +936,27 @@ body {
 @media (max-width: 768px) {
   .mobile-nav {
     display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: calc(60px + env(safe-area-inset-bottom, 0));
+    /* position: relative;  <-- implied by grid flow */
+    width: 100%;
+    height: auto;
+    min-height: 60px; /* Base height */
     background: #050505;
     border-top: 1px solid var(--void-border);
     justify-content: space-around;
     align-items: center;
+    /* Safe area handling inside the flow */
     padding-bottom: env(safe-area-inset-bottom, 0);
     z-index: 50;
   }
+
+  /* Hide nav when keyboard is open (detected by hook) */
+  html.keyboard-open .mobile-nav {
+    display: none !important;
+  }
+
+  /* Adjust terminal input area when keyboard is open */
+  /* When keyboard is open, nav is gone, so input sits on keyboard. */
+  /* VisualViewport handles the "pushing up". */
 
   .mobile-nav-item {
     display: flex;
@@ -873,6 +969,7 @@ body {
     border: none;
     cursor: pointer;
     transition: color 0.15s;
+    flex: 1;
   }
 
   .mobile-nav-item.active {
@@ -2155,4 +2252,553 @@ body {
   padding: 40px;
   text-align: center;
   color: var(--text-dim);
+}
+
+/* =============================================================================
+   HOME VIEW
+============================================================================= */
+
+.home-layout {
+  display: flex;
+  height: 100%;
+  background: var(--void-deep);
+}
+
+.home-sidebar {
+  width: 220px;
+  background: var(--void-surface);
+  border-right: 1px solid var(--void-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.home-sidebar-header {
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--void-border);
+}
+
+.home-logo {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.home-nav {
+  padding: 12px 0;
+}
+
+.home-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.home-nav-item:hover {
+  background: var(--void-elevated);
+  color: var(--text);
+}
+
+.home-nav-item.active {
+  color: var(--accent);
+  background: var(--void-elevated);
+}
+
+.home-nav-icon {
+  width: 20px;
+  text-align: center;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.home-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px;
+}
+
+.home-header {
+  margin-bottom: 32px;
+}
+
+.home-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.home-subtitle {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* Quick Actions */
+.home-quick-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.quick-action-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--void-surface);
+  border: 1px solid var(--void-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: inherit;
+  min-width: 200px;
+}
+
+.quick-action-card:hover {
+  background: var(--void-elevated);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.quick-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--void-elevated);
+  border-radius: 10px;
+  color: var(--accent);
+}
+
+.quick-action-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.quick-action-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quick-action-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.quick-action-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Projects Section */
+.home-projects {
+  margin-bottom: 32px;
+}
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.home-section-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.home-section-count {
+  background: var(--void-elevated);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Project Card */
+.project-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  background: var(--void-surface);
+  border: 1px solid var(--void-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+
+.project-card:hover {
+  background: var(--void-elevated);
+  border-color: var(--void-border);
+  transform: translateY(-1px);
+}
+
+.project-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--void-elevated);
+  border-radius: 8px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.project-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.project-card-status.running {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.project-card-status.starting {
+  background: var(--amber);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.project-card-status.idle {
+  background: var(--text-muted);
+}
+
+.project-card-path {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Empty state */
+.home-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.home-empty svg {
+  width: 48px;
+  height: 48px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.home-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.home-empty p {
+  margin: 0 0 24px 0;
+  color: var(--text-dim);
+  max-width: 300px;
+}
+
+.home-empty-action {
+  padding: 12px 24px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+
+.home-empty-action:hover {
+  opacity: 0.9;
+}
+
+/* Right sidebar - Active sessions */
+.home-right {
+  width: 260px;
+  background: var(--void-surface);
+  border-left: 1px solid var(--void-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.home-right-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--void-border);
+}
+
+.home-right-header h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.home-sessions-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.home-session-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.home-session-item:hover {
+  background: var(--void-elevated);
+}
+
+.home-session-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-session-status.running {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.home-session-status.starting {
+  background: var(--amber);
+}
+
+.home-session-status.idle {
+  background: var(--text-muted);
+}
+
+.home-session-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-session-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Mobile home */
+@media (max-width: 768px) {
+  .home-layout {
+    flex-direction: column;
+  }
+
+  .home-sidebar {
+    display: none;
+  }
+
+  .home-right {
+    display: none;
+  }
+
+  .home-main {
+    padding: 20px;
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  .home-header h1 {
+    font-size: 24px;
+  }
+
+  .home-quick-actions {
+    flex-direction: column;
+  }
+
+  .quick-action-card {
+    min-width: auto;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Add New Project Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal-card {
+  background: var(--void-surface);
+  border: 1px solid var(--void-border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-card h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.modal-card label {
+  display: block;
+  margin-bottom: 16px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.modal-card input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.modal-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modal-cancel {
+  background: var(--void-elevated);
+  border: 1px solid var(--void-border);
+  color: var(--text);
+}
+
+.modal-cancel:hover {
+  background: var(--void-surface);
+}
+
+.modal-submit {
+  background: var(--accent);
+  border: none;
+  color: #000;
+}
+
+.modal-submit:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.modal-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-error {
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: var(--red);
+  font-size: 13px;
+  margin-bottom: 16px;
 }

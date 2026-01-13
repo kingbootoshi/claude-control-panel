@@ -2,10 +2,10 @@ import { query, type SDKMessage, type SDKUserMessage } from "@anthropic-ai/claud
 import { EventEmitter } from "events";
 import fs from "fs/promises";
 import path from "path";
-import { config, getAgentWorkspace } from "./config";
+import { config } from "./config";
 import { MessageQueue } from "./message-queue";
 import { logger } from "./utils/logger";
-import type { ContentBlock, MessageContent, StreamEvent } from "./types";
+import type { ClaudeSessionOptions, ContentBlock, MessageContent, StreamEvent } from "./types";
 
 const log = logger.session;
 
@@ -13,7 +13,7 @@ export class ClaudeSession extends EventEmitter {
   private messageQueue: MessageQueue<MessageContent>;
   private isRunning = false;
   private sessionId: string | null = null;
-  private sessionFile: string;
+  private options: ClaudeSessionOptions;
   private currentMessageId: string | null = null;
   private currentTextBlockIndex: number = -1;
   private hasStreamedContent: boolean = false; // Track if we've streamed this turn
@@ -23,17 +23,18 @@ export class ClaudeSession extends EventEmitter {
   private currentThinkingId: string | null = null;
   private currentThinkingBlockIndex: number = -1;
 
-  constructor() {
+  constructor(options: ClaudeSessionOptions) {
     super();
     this.messageQueue = new MessageQueue();
-    this.sessionFile = path.join(getAgentWorkspace(config.primaryAgentId), config.sessionFile);
+    this.options = options;
   }
 
   async start(): Promise<void> {
-    this.sessionId = await this.loadSessionId();
+    // Use provided resumeSessionId if available, otherwise try to load from file
+    this.sessionId = this.options.resumeSessionId || await this.loadSessionId();
     this.isRunning = true;
     this.runQueryLoop();
-    log.info({ sessionId: this.sessionId || "new" }, "Session started");
+    log.info({ sessionId: this.sessionId || "new", cwd: this.options.cwd }, "Session started");
   }
 
   async stop(): Promise<void> {
@@ -68,7 +69,7 @@ export class ClaudeSession extends EventEmitter {
       const q = query({
         prompt: this.createMessageGenerator(),
         options: {
-          cwd: getAgentWorkspace(config.primaryAgentId),
+          cwd: this.options.cwd,
           model: config.model,
           resume: this.sessionId || undefined,
           permissionMode: "bypassPermissions",
@@ -282,7 +283,7 @@ export class ClaudeSession extends EventEmitter {
 
   private async loadSessionId(): Promise<string | null> {
     try {
-      const data = await fs.readFile(this.sessionFile, "utf-8");
+      const data = await fs.readFile(this.options.sessionFile, "utf-8");
       const { sessionId } = JSON.parse(data);
       return sessionId;
     } catch {
@@ -291,8 +292,8 @@ export class ClaudeSession extends EventEmitter {
   }
 
   private async saveSessionId(sessionId: string): Promise<void> {
-    const stateDir = path.dirname(this.sessionFile);
+    const stateDir = path.dirname(this.options.sessionFile);
     await fs.mkdir(stateDir, { recursive: true });
-    await fs.writeFile(this.sessionFile, JSON.stringify({ sessionId }, null, 2));
+    await fs.writeFile(this.options.sessionFile, JSON.stringify({ sessionId }, null, 2));
   }
 }

@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { SessionManager } from "./session-manager";
+import { TerminalManager } from "./terminal-manager";
 import { createHttpServer } from "./server";
 import { logger } from "./utils/logger";
 
@@ -15,23 +15,23 @@ async function main() {
   }
   log.info({ host: config.host, port: config.port }, "Server config");
   log.info({ model: config.model }, "Model");
+  log.info({ workspaceRoot: config.workspaceRoot }, "Workspace root");
   log.info("═══════════════════════════════════════════════════════════");
 
-  // Create session manager (handles conditional startup)
-  const sessionManager = new SessionManager();
-  await sessionManager.initialize();
+  // Create terminal manager (handles multiple sessions)
+  const terminalManager = new TerminalManager();
+  await terminalManager.initialize();
 
-  // Log runtime config if available
-  const runtimeConfig = sessionManager.getConfig();
-  if (runtimeConfig) {
-    log.info({ assistant: runtimeConfig.assistantName }, "Assistant configured");
-    log.info({ agentId: runtimeConfig.primaryAgentId }, "Primary agent");
+  // Log assistant name if configured
+  const assistantName = terminalManager.getAssistantName();
+  if (assistantName !== "Claude") {
+    log.info({ assistant: assistantName }, "Assistant configured");
   } else {
     log.info("Awaiting setup wizard completion...");
   }
 
   // Create and start HTTP/WebSocket server
-  const { server, wssHandler } = createHttpServer(sessionManager);
+  const { server, wssHandler } = createHttpServer(terminalManager);
 
   server.listen(config.port, config.host, () => {
     log.info({ url: `http://${config.host}:${config.port}` }, "HTTP server listening");
@@ -47,7 +47,11 @@ async function main() {
       log.info("HTTP server closed");
     });
 
-    // SessionManager cleanup happens automatically
+    // Kill all terminals
+    const terminals = terminalManager.list();
+    for (const terminal of terminals) {
+      await terminalManager.kill(terminal.id);
+    }
 
     log.info("Shutdown complete");
     process.exit(0);

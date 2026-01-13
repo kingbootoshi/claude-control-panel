@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Agent, AgentStatus, Attachment, StreamEventMessage } from './types';
+import type { Attachment, Project, Terminal, StreamEventMessage } from './types';
 import { useTerminal } from './hooks/useTerminal';
+import { useVisualViewport } from './hooks/useVisualViewport';
 import { trpc } from './trpc';
+import { Home } from './components/Home';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
-import { Terminal } from './components/Terminal';
+import { Terminal as TerminalComponent } from './components/Terminal';
 import { WarningBanner } from './components/WarningBanner';
 import { RightSidebar } from './components/RightSidebar';
 import { FileViewer } from './components/FileViewer';
@@ -14,9 +16,12 @@ import { QuickMenu } from './components/QuickMenu';
 import { FilesView } from './components/FilesView';
 import { SetupWizard } from './components/SetupWizard';
 import { Settings } from './components/Settings';
+import { AddProjectModal } from './components/AddProjectModal';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 const MOBILE_BREAKPOINT = 768;
+
+type View = 'home' | 'chat';
 
 // Hook to detect mobile viewport
 function useIsMobile() {
@@ -35,12 +40,21 @@ function useIsMobile() {
 }
 
 export default function App() {
-  const [activeAgentId, setActiveAgentId] = useState('');
+  // Initialize visual viewport handling for mobile keyboard
+  useVisualViewport();
+
+  // View state
+  const [view, setView] = useState<View>('home');
+  const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+
+  // UI state
   const [warningDismissed, setWarningDismissed] = useState(false);
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
 
   // Mobile state
   const isMobile = useIsMobile();
@@ -51,6 +65,56 @@ export default function App() {
   const configQuery = trpc.config.get.useQuery();
   const utils = trpc.useUtils();
 
+  // Projects and terminals queries
+  const projectsQuery = trpc.projects.list.useQuery();
+  const terminalsQuery = trpc.terminals.list.useQuery(undefined, {
+    refetchInterval: 5000, // Poll for terminal status changes
+  });
+
+  // Mutations
+  const spawnTerminalMutation = trpc.terminals.spawn.useMutation({
+    onSuccess: (data) => {
+      console.log('Terminal spawned:', data.terminalId);
+      setActiveTerminalId(data.terminalId);
+      setView('chat');
+      utils.terminals.list.invalidate();
+    },
+    onError: (error) => {
+      console.error('Failed to spawn terminal:', error.message);
+      setConnectionError(error.message);
+    },
+  });
+
+  const sendMutation = trpc.terminals.send.useMutation({
+    onError: (error) => setConnectionError(error.message),
+  });
+
+  const createProjectMutation = trpc.projects.create.useMutation({
+    onSuccess: () => {
+      utils.projects.list.invalidate();
+      setShowAddProject(false);
+    },
+  });
+
+  const resumeTerminalMutation = trpc.terminals.resume.useMutation({
+    onSuccess: () => {
+      utils.terminals.list.invalidate();
+    },
+    onError: (error) => setConnectionError(error.message),
+  });
+
+  const killTerminalMutation = trpc.terminals.kill.useMutation({
+    onSuccess: () => {
+      utils.terminals.list.invalidate();
+      // If we killed the active terminal, go home
+      if (activeTerminalId) {
+        setView('home');
+        setActiveTerminalId(null);
+        setActiveProjectId(null);
+      }
+    },
+  });
+
   const { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory, clearBlocks } = useTerminal();
 
   // Use ref to always have latest handleEvent in subscription callback
@@ -59,21 +123,17 @@ export default function App() {
     handleEventRef.current = handleEvent;
   }, [handleEvent]);
 
-  const agentsQuery = trpc.agents.list.useQuery();
-  const sendMutation = trpc.chat.send.useMutation({
-    onError: (error) => setConnectionError(error.message),
-  });
-  const historyQuery = trpc.history.get.useQuery(
-    { agentId: activeAgentId },
-    { enabled: Boolean(activeAgentId) }
+  // History query - load when terminal changes
+  const historyQuery = trpc.history.getByTerminal.useQuery(
+    { terminalId: activeTerminalId! },
+    { enabled: Boolean(activeTerminalId) }
   );
 
-  const agents: Agent[] = (agentsQuery.data ?? []).map((agent) => ({
-    ...agent,
-    status: agent.status as AgentStatus,
-    isTyping: false,
-    currentTool: null,
-  }));
+  const projects: Project[] = projectsQuery.data ?? [];
+  const terminals: Terminal[] = terminalsQuery.data ?? [];
+
+  // Get active terminal
+  const activeTerminal = terminals.find(t => t.id === activeTerminalId);
 
   // Reset dismissed state when tokens drop below threshold
   useEffect(() => {
@@ -82,33 +142,23 @@ export default function App() {
     }
   }, [tokenCount]);
 
-  useEffect(() => {
-    if (agentsQuery.error) {
-      setConnectionError(agentsQuery.error.message);
-    }
-  }, [agentsQuery.error]);
-
-  useEffect(() => {
-    if (!agents.length) return;
-    if (!activeAgentId || !agents.some((agent) => agent.id === activeAgentId)) {
-      setActiveAgentId(agents[0].id);
-    }
-  }, [agents, activeAgentId]);
-
-  useEffect(() => {
-    setViewingFile(null);
-  }, [activeAgentId]);
-
+  // Apply history when it loads
   useEffect(() => {
     if (historyQuery.data) {
       applyHistory(historyQuery.data);
     }
   }, [historyQuery.data, applyHistory]);
 
-  trpc.chat.events.useSubscription(
-    { agentId: activeAgentId },
+  // Clear file viewer when terminal changes
+  useEffect(() => {
+    setViewingFile(null);
+  }, [activeTerminalId]);
+
+  // Subscribe to terminal events
+  trpc.terminals.events.useSubscription(
+    { terminalId: activeTerminalId! },
     {
-      enabled: Boolean(activeAgentId),
+      enabled: Boolean(activeTerminalId),
       onStarted: () => {
         setConnected(true);
         setConnectionError(null);
@@ -126,47 +176,87 @@ export default function App() {
     }
   );
 
-  const agentBlocks = blocks.filter(b => b.agentId === activeAgentId);
+  // Filter blocks by active terminal
+  const terminalBlocks = blocks.filter(b => b.terminalId === activeTerminalId);
 
   // Keyboard shortcuts (desktop only)
   useEffect(() => {
     if (isMobile) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+1-9 - switch tabs
-      if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
-        e.preventDefault();
-        const index = parseInt(e.key) - 1;
-        if (index < agents.length) {
-          setActiveAgentId(agents[index].id);
-        }
+      // Escape - go back to home
+      if (e.key === 'Escape' && view === 'chat') {
+        setView('home');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [agents, activeAgentId, isMobile]);
+  }, [view, isMobile]);
+
+  // Handlers
+  const handleNewChat = useCallback(() => {
+    console.log('handleNewChat called, spawning terminal...');
+    spawnTerminalMutation.mutate({ projectId: null });
+  }, [spawnTerminalMutation]);
+
+  const handleProjectSelect = useCallback((projectId: string) => {
+    // Check if there's an existing terminal for this project
+    const existingTerminal = terminals.find(
+      t => t.projectId === projectId && t.status !== 'dead'
+    );
+
+    if (existingTerminal) {
+      // Resume existing terminal
+      setActiveTerminalId(existingTerminal.id);
+      setActiveProjectId(projectId);
+      setView('chat');
+    } else {
+      // Spawn new terminal for project
+      setActiveProjectId(projectId);
+      spawnTerminalMutation.mutate({ projectId });
+    }
+  }, [terminals, spawnTerminalMutation]);
+
+  const handleResumeTerminal = useCallback((terminalId: string) => {
+    const terminal = terminals.find(t => t.id === terminalId);
+    if (terminal) {
+      // If terminal is closed, resume it first
+      if (terminal.status === 'closed') {
+        resumeTerminalMutation.mutate({ terminalId });
+      }
+      setActiveTerminalId(terminalId);
+      setActiveProjectId(terminal.projectId);
+      setView('chat');
+    }
+  }, [terminals, resumeTerminalMutation]);
+
+  const handleCloseTerminal = useCallback((terminalId: string) => {
+    // Close = kill permanently (history will be separate feature)
+    killTerminalMutation.mutate({ terminalId });
+  }, [killTerminalMutation]);
 
   const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
-    if ((!content.trim() && !attachments?.length) || !connected) return;
+    if ((!content.trim() && !attachments?.length) || !connected || !activeTerminalId) return;
 
     // Add to local terminal immediately (with attachments for display)
-    addUserCommand(activeAgentId, content, attachments);
+    addUserCommand(activeTerminalId, content, attachments);
 
     // Send to backend
     sendMutation.mutate({
-      agentId: activeAgentId,
+      terminalId: activeTerminalId,
       content,
       attachments,
     });
-  }, [activeAgentId, connected, sendMutation, addUserCommand]);
+  }, [activeTerminalId, connected, sendMutation, addUserCommand]);
 
   const handleCompact = useCallback(() => {
+    if (!activeTerminalId) return;
     sendMutation.mutate({
-      agentId: activeAgentId,
+      terminalId: activeTerminalId,
       content: '/compact',
     });
-  }, [activeAgentId, sendMutation]);
+  }, [activeTerminalId, sendMutation]);
 
   // Handle mobile tab changes
   const handleMobileTabChange = useCallback((tab: MobileTab) => {
@@ -177,17 +267,28 @@ export default function App() {
     }
   }, []);
 
-  const activeAgent = agents.find(a => a.id === activeAgentId);
-
   // Handler for session restart after settings save
   const handleSessionRestart = useCallback(() => {
     // Invalidate all queries to get fresh data
     utils.invalidate();
     // Clear terminal blocks for fresh start
-    if (activeAgentId) {
-      clearBlocks(activeAgentId);
+    if (activeTerminalId) {
+      clearBlocks(activeTerminalId);
     }
-  }, [utils, clearBlocks, activeAgentId]);
+  }, [utils, clearBlocks, activeTerminalId]);
+
+  const handleAddProject = useCallback((name: string) => {
+    createProjectMutation.mutate({ name });
+  }, [createProjectMutation]);
+
+  const handleGoHome = useCallback(() => {
+    setView('home');
+    setActiveTerminalId(null);
+    setActiveProjectId(null);
+  }, []);
+
+  // Get assistant name from config
+  const assistantName = configQuery.data?.assistantName ?? 'Claude';
 
   // Show loading while checking config
   if (configQuery.isLoading) {
@@ -223,14 +324,44 @@ export default function App() {
     );
   }
 
-  // Mobile layout
+  // Home view
+  if (view === 'home') {
+    return (
+      <>
+        <Home
+          projects={projects}
+          terminals={terminals}
+          assistantName={assistantName}
+          onProjectSelect={handleProjectSelect}
+          onNewChat={handleNewChat}
+          onNewProject={() => setShowAddProject(true)}
+          onResumeTerminal={handleResumeTerminal}
+          onSettingsClick={() => setShowSettings(true)}
+        />
+        {showAddProject && (
+          <AddProjectModal
+            onSubmit={handleAddProject}
+            onClose={() => setShowAddProject(false)}
+            isLoading={createProjectMutation.isPending}
+            error={createProjectMutation.error?.message}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Get active project info
+  const activeProject = projects.find(p => p.id === activeProjectId);
+
+  // Mobile chat layout
   if (isMobile) {
     return (
       <div className="app-layout mobile">
         <MobileHeader
-          agentName={activeAgent?.name || 'Agent'}
-          status={activeAgent?.status || 'online'}
+          agentName={activeProject?.name ?? assistantName}
+          status={activeTerminal?.status ?? 'idle'}
           tokenCount={tokenCount}
+          onBack={handleGoHome}
         />
 
         {!warningDismissed && (
@@ -243,16 +374,20 @@ export default function App() {
 
         <main className="main-area mobile">
           {mobileTab === 'chat' && (
-            <Terminal
-              blocks={agentBlocks}
+            <TerminalComponent
+              blocks={terminalBlocks}
               onSubmit={handleSubmit}
               connected={connected}
               connectionError={connectionError}
             />
           )}
 
-          {mobileTab === 'files' && activeAgent && (
-            <FilesView agentId={activeAgent.id} />
+          {mobileTab === 'files' && activeProjectId && (
+            <FilesView projectId={activeProjectId} />
+          )}
+
+          {mobileTab === 'files' && !activeProjectId && (
+            <FilesView />
           )}
         </main>
 
@@ -264,35 +399,42 @@ export default function App() {
         <QuickMenu
           isOpen={quickMenuOpen}
           onClose={() => setQuickMenuOpen(false)}
-          agents={agents}
-          activeAgentId={activeAgentId}
-          onAgentSelect={setActiveAgentId}
+          terminals={terminals}
+          projects={projects}
+          activeTerminalId={activeTerminalId}
+          onTerminalSelect={handleResumeTerminal}
           sessionSummary={sessionSummary}
           tokenCount={tokenCount}
           onCompact={handleCompact}
           onSettingsClick={() => setShowSettings(true)}
+          onHomeClick={handleGoHome}
         />
       </div>
     );
   }
 
-  // Desktop layout
+  // Desktop chat layout
   return (
     <div className="app-layout">
       <Sidebar
-        agents={agents}
-        activeAgentId={activeAgentId}
-        onAgentSelect={setActiveAgentId}
+        terminals={terminals}
+        projects={projects}
+        activeTerminalId={activeTerminalId}
+        onTerminalSelect={handleResumeTerminal}
+        onTerminalClose={handleCloseTerminal}
         onCompact={handleCompact}
         onSettingsClick={() => setShowSettings(true)}
+        onHomeClick={handleGoHome}
         tokenCount={tokenCount}
       />
 
       <main className="main-area">
         <TabBar
-          agents={agents}
-          activeAgentId={activeAgentId}
-          onTabSelect={setActiveAgentId}
+          terminals={terminals}
+          projects={projects}
+          activeTerminalId={activeTerminalId}
+          onTabSelect={handleResumeTerminal}
+          onNewChat={handleNewChat}
           tokenCount={tokenCount}
           onCompact={handleCompact}
         />
@@ -305,15 +447,15 @@ export default function App() {
           />
         )}
 
-        {viewingFile && activeAgent ? (
+        {viewingFile && activeProjectId ? (
           <FileViewer
-            agentId={activeAgent.id}
+            projectId={activeProjectId}
             filePath={viewingFile}
             onClose={() => setViewingFile(null)}
           />
         ) : (
-          <Terminal
-            blocks={agentBlocks}
+          <TerminalComponent
+            blocks={terminalBlocks}
             onSubmit={handleSubmit}
             connected={connected}
             connectionError={connectionError}
@@ -321,13 +463,11 @@ export default function App() {
         )}
       </main>
 
-      {activeAgent && (
-        <RightSidebar
-          summary={sessionSummary}
-          agentId={activeAgent.id}
-          onFileSelect={setViewingFile}
-        />
-      )}
+      <RightSidebar
+        summary={sessionSummary}
+        projectId={activeProjectId}
+        onFileSelect={setViewingFile}
+      />
     </div>
   );
 }

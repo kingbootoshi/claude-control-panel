@@ -8,17 +8,29 @@ import { config } from "./config";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/router";
 import { logger } from "./utils/logger";
-import type { SessionManagerLike } from "./types";
+import type { TerminalManagerLike } from "./types";
 
 const log = logger.server;
 
-export function createHttpServer(sessionManager: SessionManagerLike): { server: HttpServer; wssHandler: ReturnType<typeof applyWSSHandler> } {
+export function createHttpServer(terminalManager: TerminalManagerLike): { server: HttpServer; wssHandler: ReturnType<typeof applyWSSHandler> } {
   const app = express();
   const server = createServer(app);
-  const { createHttpContext, createWsContext } = createContextFactory(sessionManager);
+  const { createHttpContext, createWsContext } = createContextFactory(terminalManager);
   const uploadLimitMb = Math.ceil(config.uploadMaxBytes / (1024 * 1024));
 
   app.use(express.json({ limit: `${uploadLimitMb}mb` }));
+
+  // Log all incoming requests for debugging
+  app.use((req, _res, next) => {
+    log.info({
+      method: req.method,
+      url: req.url,
+      ip: req.ip,
+      origin: req.headers.origin,
+      userAgent: req.headers['user-agent']?.slice(0, 50)
+    }, "Incoming request");
+    next();
+  });
 
   app.use(
     "/trpc",
@@ -32,11 +44,10 @@ export function createHttpServer(sessionManager: SessionManagerLike): { server: 
   app.use(express.static(webPath));
 
   app.get("/health", (_req, res) => {
-    const runtimeConfig = sessionManager.getConfig();
     res.json({
-      status: sessionManager.hasConfig() ? "ok" : "setup_required",
-      assistantName: runtimeConfig?.assistantName ?? "Unconfigured",
-      sessionId: sessionManager.getSessionId(),
+      status: terminalManager.hasConfig() ? "ok" : "setup_required",
+      assistantName: terminalManager.getAssistantName(),
+      terminals: terminalManager.list().length,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     });

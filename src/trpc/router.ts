@@ -4,11 +4,12 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { config, getAgentWorkspace } from "../config";
-import { loadConfig, type CCPConfig } from "../config-store";
+import { config } from "../config";
+import { loadConfig, setupAssistant, type CCPConfig } from "../config-store";
+import { loadProjects, addProject, removeProject, getProject } from "../project-store";
 import { loadSessionHistory } from "../history";
 import { listWorkspaceFiles, readWorkspaceFile, isPathSafe, sanitizeFilename, estimateBase64Bytes } from "../utils/files";
-import type { ContentBlock, ImageMediaType, StreamEvent, StreamEventMessage } from "../types";
+import type { ContentBlock, ImageMediaType, StreamEventMessage, TerminalEvent } from "../types";
 import type { Context } from "./context";
 import { logger } from "../utils/logger";
 
@@ -23,24 +24,16 @@ const attachmentSchema = z.object({
   mimeType: z.string().min(1),
 });
 
-const agentIdSchema = z.string().regex(/^[a-zA-Z0-9_-]+$/);
-
-function assertAgentAccess(ctx: Context, agentId: string): void {
-  if (agentId !== ctx.agentId) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Unknown agent" });
-  }
-}
-
 function hashInput(input: unknown): string {
   const json = JSON.stringify(input) ?? "undefined";
   return crypto.createHash("sha256").update(json).digest("hex");
 }
 
-function mapEventToMessage(event: StreamEvent, agentId: string): StreamEventMessage {
+function mapEventToMessage(event: TerminalEvent): StreamEventMessage {
   return {
-    agentId,
+    terminalId: event.terminalId,
     timestamp: new Date().toISOString(),
-    ...event,
+    ...event.event,
   };
 }
 
@@ -56,74 +49,84 @@ export const appRouter = t.router({
         name: z.string().min(1).max(50),
         claudeMd: z.string().max(50000),
       }))
-      .mutation(async ({ ctx, input }) => {
-        const result = await ctx.sessionManager.setupAgent(input.name, input.claudeMd);
-        return { success: true, agentId: result.agentId };
+      .mutation(async ({ input }) => {
+        await setupAssistant(input.name, input.claudeMd);
+        return { success: true };
       }),
   }),
 
-  // Session management
-  session: t.router({
-    restart: t.procedure.mutation(async ({ ctx }) => {
-      await ctx.sessionManager.restart();
-      return { success: true };
+  // Project management
+  projects: t.router({
+    list: t.procedure.query(async () => {
+      return loadProjects();
     }),
+
+    get: t.procedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ input }) => {
+        const project = await getProject(input.id);
+        if (!project) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+        return project;
+      }),
+
+    create: t.procedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        path: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        // If no path provided, create project in workspace
+        const projectPath = input.path || path.join(config.workspaceRoot, "projects", input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+        return addProject(input.name, projectPath);
+      }),
+
+    remove: t.procedure
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ input }) => {
+        await removeProject(input.id);
+        return { success: true };
+      }),
   }),
 
-  agents: t.router({
+  // Terminal management
+  terminals: t.router({
     list: t.procedure.query(({ ctx }) => {
-      return [
-        {
-          id: ctx.agentId,
-          name: ctx.assistantName,
-          sessionId: ctx.sessionManager.getSessionId(),
-          status: ctx.sessionManager.hasConfig() ? "online" : "offline",
-        },
-      ];
-    }),
-  }),
-
-  history: t.router({
-    get: t.procedure.input(z.object({ agentId: agentIdSchema })).query(async ({ ctx, input }) => {
-      assertAgentAccess(ctx, input.agentId);
-      const sessionId = ctx.sessionManager.getSessionId();
-      if (!sessionId) {
-        return { blocks: [], lastContextTokens: 0 };
-      }
-      return loadSessionHistory(sessionId);
-    }),
-  }),
-
-  files: t.router({
-    list: t.procedure.input(z.object({ agentId: agentIdSchema })).query(async ({ ctx, input }) => {
-      assertAgentAccess(ctx, input.agentId);
-      const agentPath = getAgentWorkspace(input.agentId);
-      return listWorkspaceFiles(agentPath);
+      return ctx.terminalManager.list();
     }),
 
-    read: t.procedure.input(z.object({ agentId: agentIdSchema, path: z.string().min(1) })).query(async ({ ctx, input }) => {
-      assertAgentAccess(ctx, input.agentId);
-      const agentPath = getAgentWorkspace(input.agentId);
-      if (!isPathSafe(agentPath, input.path)) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-      }
-      const fullPath = path.join(agentPath, input.path);
-      const content = await readWorkspaceFile(fullPath);
-      return { content };
-    }),
-  }),
+    get: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .query(({ ctx, input }) => {
+        const terminal = ctx.terminalManager.get(input.terminalId);
+        if (!terminal) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Terminal not found" });
+        }
+        return terminal;
+      }),
 
-  chat: t.router({
-    send: t.procedure
-      .input(
-        z.object({
-          agentId: agentIdSchema,
-          content: z.string().optional(),
-          attachments: z.array(attachmentSchema).optional(),
-        })
-      )
+    spawn: t.procedure
+      .input(z.object({
+        projectId: z.string().nullable(),
+      }))
       .mutation(async ({ ctx, input }) => {
-        assertAgentAccess(ctx, input.agentId);
+        const terminalId = await ctx.terminalManager.spawn(input.projectId);
+        return { terminalId };
+      }),
+
+    send: t.procedure
+      .input(z.object({
+        terminalId: z.string(),
+        content: z.string().optional(),
+        attachments: z.array(attachmentSchema).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const terminal = ctx.terminalManager.get(input.terminalId);
+        if (!terminal) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Terminal not found" });
+        }
+
         const attachments = input.attachments ?? [];
         const content = input.content ?? "";
 
@@ -153,7 +156,8 @@ export const appRouter = t.router({
             continue;
           }
 
-          const uploadsDir = path.join(getAgentWorkspace(input.agentId), "uploads");
+          // File attachment - save to workspace uploads
+          const uploadsDir = path.join(config.workspaceRoot, "uploads");
           await fs.mkdir(uploadsDir, { recursive: true });
           const filename = `${Date.now()}-${sanitizeFilename(attachment.name)}`;
           const filepath = path.join(uploadsDir, filename);
@@ -167,31 +171,108 @@ export const appRouter = t.router({
         }
 
         if (contentBlocks.length > 0) {
-          log.info({ blocks: contentBlocks.length, agentId: input.agentId }, "Multimodal message received");
-          await ctx.sessionManager.sendMessage(contentBlocks);
+          log.info({ blocks: contentBlocks.length, terminalId: input.terminalId }, "Multimodal message received");
+          await ctx.terminalManager.send(input.terminalId, contentBlocks);
         } else if (content.trim()) {
-          log.info({ chars: content.length, agentId: input.agentId }, "User message received");
-          await ctx.sessionManager.sendMessage(content);
+          log.info({ chars: content.length, terminalId: input.terminalId }, "User message received");
+          await ctx.terminalManager.send(input.terminalId, content);
         }
       }),
 
-    events: t.procedure.input(z.object({ agentId: agentIdSchema })).subscription(({ ctx, input }) => {
-      assertAgentAccess(ctx, input.agentId);
-      return observable<StreamEventMessage>((emit) => {
-        const handler = (event: StreamEvent) => {
-          if (event.type === "tool_start") {
-            log.info({ toolName: event.toolName, inputHash: hashInput(event.input) }, "Tool invoked");
-          }
-          emit.next(mapEventToMessage(event, input.agentId));
-        };
+    close: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await ctx.terminalManager.close(input.terminalId);
+        return { success: true };
+      }),
 
-        ctx.sessionManager.on("event", handler);
+    resume: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await ctx.terminalManager.resume(input.terminalId);
+        return { success: true };
+      }),
 
-        return () => {
-          ctx.sessionManager.off("event", handler);
-        };
-      });
+    kill: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await ctx.terminalManager.kill(input.terminalId);
+        return { success: true };
+      }),
+
+    events: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .subscription(({ ctx, input }) => {
+        return observable<StreamEventMessage>((emit) => {
+          const handler = (data: TerminalEvent) => {
+            if (data.terminalId === input.terminalId) {
+              if (data.event.type === "tool_start") {
+                log.info({ toolName: data.event.toolName, inputHash: hashInput(data.event.input) }, "Tool invoked");
+              }
+              emit.next(mapEventToMessage(data));
+            }
+          };
+
+          ctx.terminalManager.on("terminal_event", handler);
+
+          return () => {
+            ctx.terminalManager.off("terminal_event", handler);
+          };
+        });
+      }),
+  }),
+
+  // History - loads from Claude's session files
+  history: t.router({
+    get: t.procedure
+      .input(z.object({ sessionId: z.string() }))
+      .query(async ({ input }) => {
+        if (!input.sessionId) {
+          return { blocks: [], lastContextTokens: 0 };
+        }
+        return loadSessionHistory(input.sessionId);
+      }),
+
+    getByTerminal: t.procedure
+      .input(z.object({ terminalId: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const terminal = ctx.terminalManager.get(input.terminalId);
+        if (!terminal || !terminal.sessionId) {
+          return { blocks: [], lastContextTokens: 0 };
+        }
+        return loadSessionHistory(terminal.sessionId);
+      }),
+  }),
+
+  // Files - browse workspace or project files
+  files: t.router({
+    listWorkspace: t.procedure.query(async () => {
+      return listWorkspaceFiles(config.workspaceRoot);
     }),
+
+    listProject: t.procedure
+      .input(z.object({ projectId: z.string() }))
+      .query(async ({ input }) => {
+        const project = await getProject(input.projectId);
+        if (!project) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+        return listWorkspaceFiles(project.path);
+      }),
+
+    read: t.procedure
+      .input(z.object({
+        basePath: z.string(),
+        filePath: z.string().min(1),
+      }))
+      .query(async ({ input }) => {
+        if (!isPathSafe(input.basePath, input.filePath)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+        }
+        const fullPath = path.join(input.basePath, input.filePath);
+        const content = await readWorkspaceFile(fullPath);
+        return { content };
+      }),
   }),
 });
 

@@ -1,19 +1,21 @@
-export type AgentStatus = 'online' | 'offline' | 'busy';
+export type TerminalStatus = 'starting' | 'running' | 'idle' | 'closed' | 'dead';
 
-export interface Agent {
+// Project - tracked directory on filesystem
+export interface Project {
   id: string;
   name: string;
-  status: AgentStatus;
-  sessionId: string | null;
-  isTyping: boolean;
-  currentTool: string | null;
+  path: string;
+  createdAt: string;
+  lastOpenedAt: string;
 }
 
-export interface AgentConfig {
-  name: string;
-  workspacePath?: string;
-  model?: string;
-  systemPrompt?: string;
+// Terminal - running Claude session
+export interface Terminal {
+  id: string;
+  projectId: string | null;  // null = non-project chat
+  sessionId: string | null;
+  status: TerminalStatus;
+  createdAt: string;
 }
 
 export interface Attachment {
@@ -38,7 +40,7 @@ export type TerminalBlockType =
 export interface TerminalBlock {
   id: string;
   type: TerminalBlockType;
-  agentId: string;
+  terminalId: string;  // was agentId
   timestamp: number;
 
   // Content varies by type
@@ -83,7 +85,7 @@ export interface StreamEventMessage {
     | 'error'
     | 'init'
     | 'compact_complete';
-  agentId: string;
+  terminalId: string;  // was agentId
   timestamp: string;
   content?: string;
   messageId?: string;
@@ -115,9 +117,6 @@ export interface FileEntry {
 }
 
 export interface CCPConfig {
-  version: 1;
-  primaryAgent: {
-    id: string;
-    name: string;
-  };
+  version: 2;
+  assistantName: string;
 }
