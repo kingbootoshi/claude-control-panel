@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Center - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-deep: #030508;
+      --bg-panel: #080b10;
+      --bg-elevated: #0c1018;
+      --border: #1a2030;
+      --border-glow: #0ea5e9;
+      --accent: #0ea5e9;
+      --accent-dim: rgba(14, 165, 233, 0.15);
+      --warning: #f59e0b;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text: #e2e8f0;
+      --text-dim: #64748b;
+      --text-muted: #334155;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg-deep);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.1) 2px,
+        rgba(0, 0, 0, 0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      grid-template-rows: 56px 1fr 48px;
+      height: 100dvh;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--bg-deep);
+    }
+
+    .logo-text {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .status-cluster {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-dot.warning { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+    .status-dot.danger { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-dim);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg-deep);
+    }
+
+    .btn-primary:hover {
+      background: #38bdf8;
+      box-shadow: 0 0 20px var(--accent-dim);
+    }
+
+    /* Left Sidebar - Projects & Agents */
+    .sidebar {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .sidebar-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+    }
+
+    .sidebar-add {
+      width: 20px;
+      height: 20px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .sidebar-add:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .project-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .project-item {
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .project-item:hover {
+      border-color: var(--border);
+    }
+
+    .project-item.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .project-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .project-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .project-name {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 8px;
+    }
+
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .agent-card {
+      padding: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .agent-card:hover {
+      border-color: var(--accent);
+    }
+
+    .agent-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-dim);
+    }
+
+    .agent-status {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .agent-status.busy { background: var(--warning); }
+    .agent-status.offline { background: var(--text-muted); }
+
+    .agent-name {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .agent-type {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* Chat history */
+    .history-section {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px;
+    }
+
+    .history-item {
+      padding: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid transparent;
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .history-item:hover {
+      border-color: var(--border);
+    }
+
+    .history-title {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .history-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* Main Content Area */
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    /* Terminal Panel */
+    .terminal-panel {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .terminal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .terminal-tab {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .terminal-tab:hover {
+      color: var(--text);
+    }
+
+    .terminal-tab.active {
+      background: var(--bg-elevated);
+      border-color: var(--border);
+      color: var(--accent);
+    }
+
+    .terminal-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .terminal-output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .message {
+      margin-bottom: 16px;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .message-role {
+      padding: 2px 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+    }
+
+    .message-role.user {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .message-role.assistant {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .message-time {
+      color: var(--text-muted);
+    }
+
+    .message-content {
+      padding-left: 16px;
+      border-left: 2px solid var(--border);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .tool-block {
+      margin: 12px 0;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+    }
+
+    .tool-header {
+      padding: 8px 12px;
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tool-name {
+      color: var(--warning);
+    }
+
+    .tool-status {
+      color: var(--success);
+    }
+
+    .tool-content {
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .terminal-input-area {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+    }
+
+    .terminal-input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    .terminal-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-dim);
+    }
+
+    .terminal-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      padding: 12px 24px;
+      background: var(--accent);
+      border: none;
+      color: var(--bg-deep);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .send-btn:hover {
+      background: #38bdf8;
+      box-shadow: 0 0 20px var(--accent-dim);
+    }
+
+    /* Kanban Panel */
+    .kanban-panel {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kanban-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kanban-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .kanban-columns {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .kanban-column {
+      margin-bottom: 16px;
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .column-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .column-count {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .kanban-card {
+      padding: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .kanban-card:hover {
+      border-color: var(--accent);
+    }
+
+    .card-title {
+      font-size: 12px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 4px;
+    }
+
+    .card-tag {
+      padding: 2px 6px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card-tag.bug { border-color: var(--danger); color: var(--danger); }
+    .card-tag.feature { border-color: var(--accent); color: var(--accent); }
+    .card-tag.fix { border-color: var(--warning); color: var(--warning); }
+
+    .card-action {
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border: none;
+      color: var(--bg-deep);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.15s;
+    }
+
+    .kanban-card:hover .card-action {
+      opacity: 1;
+    }
+
+    /* Right Panel - Git & Files */
+    .right-panel {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-tab {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .panel-tab:hover {
+      color: var(--text);
+    }
+
+    .panel-tab.active {
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    /* Git Section */
+    .git-branch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .branch-icon {
+      color: var(--success);
+    }
+
+    .branch-name {
+      flex: 1;
+      font-size: 12px;
+    }
+
+    .branch-select {
+      padding: 4px 8px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .diff-section {
+      margin-bottom: 16px;
+    }
+
+    .diff-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .diff-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .diff-count {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .diff-file {
+      padding: 8px 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .diff-file:hover {
+      border-color: var(--accent);
+    }
+
+    .diff-status {
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .diff-status.added { color: var(--success); }
+    .diff-status.modified { color: var(--warning); }
+    .diff-status.deleted { color: var(--danger); }
+
+    .diff-filename {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .diff-stats {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .diff-stats .add { color: var(--success); }
+    .diff-stats .del { color: var(--danger); }
+
+    /* Files Section */
+    .file-tree {
+      font-size: 12px;
+    }
+
+    .file-item {
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .file-item:hover {
+      background: var(--bg-elevated);
+    }
+
+    .file-icon {
+      width: 16px;
+      color: var(--text-dim);
+    }
+
+    .folder-icon { color: var(--warning); }
+    .file-icon.js { color: #f7df1e; }
+    .file-icon.ts { color: #3178c6; }
+    .file-icon.json { color: var(--success); }
+
+    .file-name {
+      flex: 1;
+    }
+
+    .file-children {
+      padding-left: 16px;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-left, .status-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-dim);
+    }
+
+    .status-item .value {
+      color: var(--text);
+    }
+
+    .status-item .success { color: var(--success); }
+    .status-item .warning { color: var(--warning); }
+
+    /* Back link */
+    .back-link {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 8px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      z-index: 10000;
+      transition: all 0.15s;
+    }
+
+    .back-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-deep);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">Back to Catalogue</a>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="logo">
+        <div class="logo-icon">CC</div>
+        <span class="logo-text">Command Center</span>
+      </div>
+
+      <div class="status-cluster">
+        <div class="status-item">
+          <span class="status-dot"></span>
+          <span>Claude Code Online</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot"></span>
+          <span>Codex Ready</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot warning"></span>
+          <span>GitHub Connected</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn">New Project</button>
+        <button class="btn btn-primary">Deploy Agent</button>
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Projects</span>
+          <button class="sidebar-add">+</button>
+        </div>
+        <div class="project-list">
+          <div class="project-item active">
+            <div class="project-icon">CP</div>
+            <div class="project-info">
+              <div class="project-name">claude_control_panel</div>
+              <div class="project-meta">
+                <span>main</span>
+                <span>12 tasks</span>
+              </div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="project-icon">GW</div>
+            <div class="project-info">
+              <div class="project-name">ghost-workspace</div>
+              <div class="project-meta">
+                <span>develop</span>
+                <span>3 tasks</span>
+              </div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="project-icon">VS</div>
+            <div class="project-info">
+              <div class="project-name">video-stitch</div>
+              <div class="project-meta">
+                <span>main</span>
+                <span>0 tasks</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Agents</span>
+        </div>
+        <div class="agent-grid">
+          <div class="agent-card active">
+            <span class="agent-status"></span>
+            <div class="agent-name">Ghost</div>
+            <div class="agent-type">Claude Code</div>
+          </div>
+          <div class="agent-card">
+            <span class="agent-status busy"></span>
+            <div class="agent-name">Builder</div>
+            <div class="agent-type">Codex</div>
+          </div>
+          <div class="agent-card">
+            <span class="agent-status offline"></span>
+            <div class="agent-name">Reviewer</div>
+            <div class="agent-type">Claude Code</div>
+          </div>
+          <div class="agent-card">
+            <span class="agent-status"></span>
+            <div class="agent-name">Researcher</div>
+            <div class="agent-type">Claude Code</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section history-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">History</span>
+        </div>
+        <div class="history-list">
+          <div class="history-item">
+            <div class="history-title">Frontend design exploration</div>
+            <div class="history-meta">Today, 14:32 - Ghost</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">Mobile UX improvements</div>
+            <div class="history-meta">Today, 11:15 - Ghost</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">tRPC migration</div>
+            <div class="history-meta">Yesterday - Builder</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">Auth implementation</div>
+            <div class="history-meta">2 days ago - Ghost</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Terminal -->
+      <section class="terminal-panel">
+        <div class="terminal-header">
+          <div class="terminal-tabs">
+            <button class="terminal-tab active">Ghost</button>
+            <button class="terminal-tab">Builder</button>
+          </div>
+          <div class="terminal-info">
+            <span>Session: 45.2k tokens</span>
+            <span>Model: Opus 4.5</span>
+          </div>
+        </div>
+
+        <div class="terminal-output">
+          <div class="message">
+            <div class="message-header">
+              <span class="message-role user">User</span>
+              <span class="message-time">14:32:15</span>
+            </div>
+            <div class="message-content">
+              Create a design catalogue for the control panel with 5 distinct UI proposals.
+            </div>
+          </div>
+
+          <div class="message">
+            <div class="message-header">
+              <span class="message-role assistant">Ghost</span>
+              <span class="message-time">14:32:18</span>
+            </div>
+            <div class="message-content">
+              I'll create a design catalogue with 5 distinct proposals for the Claude/Codex Control Panel.
+
+              <div class="tool-block">
+                <div class="tool-header">
+                  <span class="tool-name">Task: Explore</span>
+                  <span class="tool-status">Complete</span>
+                </div>
+                <div class="tool-content">
+                  Explored codebase architecture: React + tRPC, Tailwind CSS, terminal aesthetic...
+                </div>
+              </div>
+
+              Let me start with the first design - a military command center aesthetic with an ops-focused layout.
+            </div>
+          </div>
+        </div>
+
+        <div class="terminal-input-area">
+          <div class="input-wrapper">
+            <input type="text" class="terminal-input" placeholder="Enter command or message...">
+            <button class="send-btn">Execute</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kanban -->
+      <section class="kanban-panel">
+        <div class="kanban-header">
+          <span class="kanban-title">Mission Board</span>
+          <button class="btn">+ Task</button>
+        </div>
+        <div class="kanban-columns">
+          <div class="kanban-column">
+            <div class="column-header">
+              <span class="column-title">Queued</span>
+              <span class="column-count">4</span>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Add GitHub OAuth integration</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag feature">Feature</span>
+                </div>
+                <button class="card-action">&#9654;</button>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Fix mobile keyboard overlap</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag bug">Bug</span>
+                </div>
+                <button class="card-action">&#9654;</button>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Implement branch switching UI</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag feature">Feature</span>
+                </div>
+                <button class="card-action">&#9654;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-column">
+            <div class="column-header">
+              <span class="column-title">In Progress</span>
+              <span class="column-count">2</span>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Design catalogue exploration</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag">Ghost</span>
+                </div>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Add diff viewer component</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag fix">Fix</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-column">
+            <div class="column-header">
+              <span class="column-title">Complete</span>
+              <span class="column-count">6</span>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">tRPC migration</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag feature">Feature</span>
+                </div>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Mobile responsive layout</div>
+              <div class="card-meta">
+                <div class="card-tags">
+                  <span class="card-tag feature">Feature</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Right Panel -->
+    <aside class="right-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active">Git</button>
+        <button class="panel-tab">Files</button>
+        <button class="panel-tab">Context</button>
+      </div>
+
+      <div class="panel-content">
+        <div class="git-branch">
+          <span class="branch-icon">&#9679;</span>
+          <span class="branch-name">main</span>
+          <select class="branch-select">
+            <option>main</option>
+            <option>develop</option>
+            <option>feature/kanban</option>
+          </select>
+        </div>
+
+        <div class="diff-section">
+          <div class="diff-header">
+            <span class="diff-title">Staged Changes</span>
+            <span class="diff-count">3 files</span>
+          </div>
+          <div class="diff-file">
+            <span class="diff-status modified">M</span>
+            <span class="diff-filename">src/App.tsx</span>
+            <span class="diff-stats"><span class="add">+45</span> <span class="del">-12</span></span>
+          </div>
+          <div class="diff-file">
+            <span class="diff-status modified">M</span>
+            <span class="diff-filename">src/index.css</span>
+            <span class="diff-stats"><span class="add">+128</span> <span class="del">-3</span></span>
+          </div>
+          <div class="diff-file">
+            <span class="diff-status added">A</span>
+            <span class="diff-filename">src/components/Kanban.tsx</span>
+            <span class="diff-stats"><span class="add">+234</span></span>
+          </div>
+        </div>
+
+        <div class="diff-section">
+          <div class="diff-header">
+            <span class="diff-title">Unstaged Changes</span>
+            <span class="diff-count">2 files</span>
+          </div>
+          <div class="diff-file">
+            <span class="diff-status modified">M</span>
+            <span class="diff-filename">src/server.ts</span>
+            <span class="diff-stats"><span class="add">+8</span> <span class="del">-2</span></span>
+          </div>
+          <div class="diff-file">
+            <span class="diff-status modified">M</span>
+            <span class="diff-filename">web/vite.config.ts</span>
+            <span class="diff-stats"><span class="add">+3</span> <span class="del">-1</span></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <div class="status-item">
+          <span>Project:</span>
+          <span class="value">claude_control_panel</span>
+        </div>
+        <div class="status-item">
+          <span>Branch:</span>
+          <span class="value success">main</span>
+        </div>
+        <div class="status-item">
+          <span>Changes:</span>
+          <span class="value warning">5 files</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <div class="status-item">
+          <span>Agents:</span>
+          <span class="value">2 active</span>
+        </div>
+        <div class="status-item">
+          <span>Tasks:</span>
+          <span class="value">4 queued</span>
+        </div>
+        <div class="status-item">
+          <span class="value success">System Operational</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

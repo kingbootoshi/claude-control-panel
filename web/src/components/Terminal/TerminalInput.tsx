@@ -97,12 +97,11 @@ export function TerminalInput({ onSubmit, disabled, placeholder }: TerminalInput
   }, [input, attachments, onSubmit]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Cmd+Enter or Ctrl+Enter sends (for power users)
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    // Enter sends, Shift+Enter for newline
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-    // Plain Enter = newline (default behavior, no prevention)
   };
 
   return (

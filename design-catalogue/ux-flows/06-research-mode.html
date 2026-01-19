@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCP - Research Mode</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --accent-glow: rgba(245, 158, 11, 0.08);
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --cyan: #06b6d4;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 180px 1fr 280px;
+      grid-template-rows: 40px 1fr 28px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+
+    .mode-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--accent-dim);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .mode-indicator svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .top-bar-spacer { flex: 1; }
+
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+      background: var(--void-border);
+      color: var(--text);
+    }
+
+    .action-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .home-link {
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .home-link:hover {
+      color: var(--accent);
+    }
+
+    .quick-actions {
+      padding: 8px;
+    }
+
+    .quick-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .quick-action:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .quick-action svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--void-border);
+      margin: 8px 16px;
+    }
+
+    .sidebar-section {
+      padding: 0 8px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      padding: 8px 8px 6px;
+    }
+
+    .recent-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+      font-size: 11px;
+    }
+
+    .recent-item:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .recent-item svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0.6;
+    }
+
+    .recent-time {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid var(--void-border);
+    }
+
+    .new-project-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .new-project-btn:hover {
+      background: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .new-project-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Main Terminal */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    /* Welcome banner */
+    .welcome-banner {
+      margin-bottom: 32px;
+      padding: 20px;
+      background: linear-gradient(135deg, var(--void-elevated) 0%, var(--void-surface) 100%);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+    }
+
+    .welcome-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .welcome-title svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent);
+    }
+
+    .welcome-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    .welcome-hint {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--void-border);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .welcome-hint code {
+      background: var(--void-deep);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--accent);
+    }
+
+    /* Message styling */
+    .message {
+      margin-bottom: 24px;
+    }
+
+    .message-line {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .message-role {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .message-role.agent {
+      color: var(--text-dim);
+    }
+
+    .message-prompt {
+      color: var(--accent);
+    }
+
+    .message-content {
+      color: var(--text);
+    }
+
+    .agent-response {
+      margin-top: 12px;
+      padding-left: 24px;
+    }
+
+    .agent-prefix {
+      color: var(--text-dim);
+    }
+
+    /* Tool block */
+    .tool-block {
+      margin: 16px 0;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--void-elevated);
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .tool-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--purple);
+    }
+
+    .tool-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .tool-status {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--green);
+    }
+
+    .tool-body {
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    .tool-result {
+      color: var(--text-dim);
+    }
+
+    .tool-result strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* Output block */
+    .output-block {
+      margin: 16px 0;
+      padding: 16px;
+      background: var(--void-surface);
+      border-left: 3px solid var(--cyan);
+    }
+
+    .output-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .output-content {
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .output-content p {
+      margin-bottom: 12px;
+    }
+
+    .output-content ul {
+      list-style: none;
+      margin: 8px 0;
+    }
+
+    .output-content li {
+      padding: 4px 0;
+      color: var(--text-dim);
+    }
+
+    .output-content li::before {
+      content: "-";
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    /* Comment line */
+    .comment {
+      color: var(--text-muted);
+      font-style: italic;
+      margin: 16px 0;
+    }
+
+    /* Input line */
+    .input-container {
+      padding: 16px 24px;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+    }
+
+    .input-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+
+    .input-line:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input-prompt {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .input-field {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .input-field::placeholder {
+      color: var(--text-muted);
+    }
+
+    .input-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Right Panel - Context */
+    .context-panel {
+      background: var(--void-surface);
+      border-left: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .panel-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .panel-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .session-info {
+      font-size: 11px;
+    }
+
+    .session-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+
+    .session-label {
+      color: var(--text-muted);
+    }
+
+    .session-value {
+      color: var(--text);
+    }
+
+    .session-value.highlight {
+      color: var(--accent);
+    }
+
+    /* Capabilities */
+    .capability-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .capability {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--void-elevated);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .capability svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.7;
+    }
+
+    .capability.active {
+      border: 1px solid var(--green);
+      color: var(--text);
+    }
+
+    .capability.active svg {
+      color: var(--green);
+      opacity: 1;
+    }
+
+    /* Sources panel */
+    .sources-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .source-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--void-elevated);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .source-item:hover {
+      background: var(--void-border);
+    }
+
+    .source-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+    }
+
+    .source-icon.web { color: var(--blue); }
+    .source-icon.file { color: var(--accent); }
+
+    .source-text {
+      flex: 1;
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Suggested prompts */
+    .suggestions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .suggestion {
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .suggestion:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-section {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+    }
+
+    .status-section:not(:last-child) {
+      border-right: 1px solid var(--void-border);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .status-label {
+      color: var(--text-dim);
+    }
+
+    .status-value {
+      color: var(--text);
+    }
+
+    .status-spacer { flex: 1; }
+
+    /* Flow navigation */
+    .flow-nav {
+      position: fixed;
+      bottom: 40px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      z-index: 100;
+    }
+
+    .flow-nav a {
+      padding: 6px 10px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .flow-nav a:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .flow-nav a.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="window-controls">
+        <div class="window-dot red"></div>
+        <div class="window-dot yellow"></div>
+        <div class="window-dot green"></div>
+      </div>
+
+      <div class="mode-indicator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        Research Mode
+      </div>
+
+      <div class="top-bar-spacer"></div>
+
+      <div class="top-bar-actions">
+        <button class="action-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          New Session
+        </button>
+        <button class="action-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17,21 17,13 7,13 7,21"/>
+            <polyline points="7,3 7,8 15,8"/>
+          </svg>
+          Save
+        </button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>Ghost</span>
+        <a href="00-home-project-select.html" class="home-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9,22 9,12 15,12 15,22"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          Web Search
+        </div>
+        <div class="quick-action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            <polyline points="14,2 14,8 20,8"/>
+          </svg>
+          Read File
+        </div>
+        <div class="quick-action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          Run Script
+        </div>
+      </div>
+
+      <div class="nav-divider"></div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Recent Sessions</div>
+        <div class="recent-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+          <span>API research</span>
+          <span class="recent-time">2h</span>
+        </div>
+        <div class="recent-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+          <span>Script debugging</span>
+          <span class="recent-time">5h</span>
+        </div>
+        <div class="recent-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+          <span>System config</span>
+          <span class="recent-time">1d</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="new-project-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            <path d="M12 11v6M9 14h6"/>
+          </svg>
+          Open Project
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Terminal Area -->
+    <div class="main">
+      <div class="terminal">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+          <div class="welcome-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            Research Mode
+          </div>
+          <div class="welcome-desc">
+            General-purpose assistant mode. No project context - work anywhere on your system,
+            search the web, run scripts, or just chat.
+          </div>
+          <div class="welcome-hint">
+            Tip: Use <code>/project</code> to switch to a project, or <code>/web</code> to search online
+          </div>
+        </div>
+
+        <!-- Example conversation -->
+        <div class="message">
+          <div class="message-line">
+            <span class="message-role">you</span>
+            <span class="message-prompt">$</span>
+            <span class="message-content">what's the best way to handle rate limiting in a node.js API?</span>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="agent-response">
+            <div class="tool-block">
+              <div class="tool-header">
+                <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <span class="tool-label">WebSearch: "node.js rate limiting best practices 2025"</span>
+                <span class="tool-status">completed</span>
+              </div>
+              <div class="tool-body">
+                <div class="tool-result">Found <strong>8 relevant sources</strong> including express-rate-limit docs, Redis-based solutions, and API gateway patterns</div>
+              </div>
+            </div>
+
+            <div class="output-block">
+              <div class="output-label">Response</div>
+              <div class="output-content">
+                <p>For Node.js rate limiting, there are a few solid approaches depending on your scale:</p>
+
+                <p><strong>1. express-rate-limit</strong> - Simple, works for small to medium apps</p>
+                <ul>
+                  <li>In-memory by default, easy setup</li>
+                  <li>Add redis store for distributed systems</li>
+                </ul>
+
+                <p><strong>2. Redis + sliding window</strong> - Better for high traffic</p>
+                <ul>
+                  <li>Use MULTI/EXEC for atomic operations</li>
+                  <li>Consistent across multiple instances</li>
+                </ul>
+
+                <p><strong>3. API Gateway</strong> - Let infrastructure handle it</p>
+                <ul>
+                  <li>Kong, AWS API Gateway, Cloudflare</li>
+                  <li>Offloads logic from your app</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="message-line">
+            <span class="message-role">you</span>
+            <span class="message-prompt">$</span>
+            <span class="message-content">show me an example with express-rate-limit</span>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="agent-response">
+            <div class="tool-block">
+              <div class="tool-header">
+                <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16,18 22,12 16,6"/>
+                  <polyline points="8,6 2,12 8,18"/>
+                </svg>
+                <span class="tool-label">Exa Code Search: "express-rate-limit setup example"</span>
+                <span class="tool-status">completed</span>
+              </div>
+            </div>
+
+            <div class="output-block" style="border-left-color: var(--accent);">
+              <div class="output-label" style="color: var(--accent);">Code Example</div>
+              <div class="output-content" style="font-size: 12px; color: var(--text);">
+<pre style="margin: 0; white-space: pre-wrap;">import rateLimit from 'express-rate-limit'
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests' }
+})
+
+app.use('/api/', limiter)</pre>
+              </div>
+            </div>
+
+            <div class="comment">// For production, add a Redis store for distributed rate limiting</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="input-container">
+        <div class="input-line">
+          <span class="input-prompt">$</span>
+          <input type="text" class="input-field" placeholder="Ask anything, run scripts, search the web...">
+          <span class="input-hint">enter to send</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel - Context -->
+    <div class="context-panel">
+      <div class="panel-header">Session Context</div>
+
+      <div class="panel-section">
+        <div class="session-info">
+          <div class="session-row">
+            <span class="session-label">Mode</span>
+            <span class="session-value highlight">Research</span>
+          </div>
+          <div class="session-row">
+            <span class="session-label">Duration</span>
+            <span class="session-value">12m</span>
+          </div>
+          <div class="session-row">
+            <span class="session-label">Messages</span>
+            <span class="session-value">4</span>
+          </div>
+          <div class="session-row">
+            <span class="session-label">Tools Used</span>
+            <span class="session-value">2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-section-title">Capabilities</div>
+        <div class="capability-list">
+          <div class="capability active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            Web Search
+          </div>
+          <div class="capability active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            </svg>
+            File Access
+          </div>
+          <div class="capability active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4,17 10,11 4,5"/>
+              <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            Bash Commands
+          </div>
+          <div class="capability">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/>
+              <path d="M9 18c-4.51 2-5-2-7-2"/>
+            </svg>
+            Git (no project)
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-section-title">Sources Used</div>
+        <div class="sources-list">
+          <div class="source-item">
+            <svg class="source-icon web" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span class="source-text">express-rate-limit docs</span>
+          </div>
+          <div class="source-item">
+            <svg class="source-icon web" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span class="source-text">Redis rate limiting patterns</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section" style="border-bottom: none;">
+        <div class="panel-section-title">Try Asking</div>
+        <div class="suggestions">
+          <div class="suggestion">"search for X on the web"</div>
+          <div class="suggestion">"read ~/scripts/video-stitch.sh"</div>
+          <div class="suggestion">"what processes are using port 3000?"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-section">
+        <span class="status-dot"></span>
+        <span class="status-value">claude-opus-4</span>
+      </div>
+      <div class="status-section">
+        <span class="status-label">mode:</span>
+        <span class="status-value">research</span>
+      </div>
+      <div class="status-section">
+        <span class="status-label">working dir:</span>
+        <span class="status-value">~</span>
+      </div>
+      <div class="status-spacer"></div>
+      <div class="status-section">
+        <span class="status-label">session:</span>
+        <span class="status-value">res-a7f3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flow Navigation -->
+  <nav class="flow-nav">
+    <a href="00-home-project-select.html">Home</a>
+    <a href="01-project-workspace.html">Workspace</a>
+    <a href="02-kanban-tasks.html">Kanban</a>
+    <a href="03-agent-running.html">Agent</a>
+    <a href="04-git-panel.html">Git</a>
+    <a href="05-history.html">History</a>
+    <a href="06-research-mode.html" class="active">Research</a>
+  </nav>
+</body>
+</html>

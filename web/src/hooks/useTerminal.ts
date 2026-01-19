@@ -5,10 +5,10 @@ interface UseTerminalReturn {
   blocks: TerminalBlock[];
   tokenCount: number;
   sessionSummary: string | null;
-  addUserCommand: (agentId: string, content: string, attachments?: Attachment[]) => void;
+  addUserCommand: (terminalId: string, content: string, attachments?: Attachment[]) => void;
   handleEvent: (message: StreamEventMessage) => void;
   applyHistory: (history: HistoryResult) => void;
-  clearBlocks: (agentId: string) => void;
+  clearBlocks: (terminalId: string) => void;
 }
 
 export function useTerminal(): UseTerminalReturn {
@@ -40,10 +40,10 @@ export function useTerminal(): UseTerminalReturn {
     ));
   }, []);
 
-  const addUserCommand = useCallback((agentId: string, content: string, attachments?: Attachment[]) => {
+  const addUserCommand = useCallback((terminalId: string, content: string, attachments?: Attachment[]) => {
     addBlock({
       type: 'user_command',
-      agentId,
+      terminalId,
       content,
       attachments: attachments?.map(a => ({
         type: a.type,
@@ -55,7 +55,7 @@ export function useTerminal(): UseTerminalReturn {
   }, [addBlock]);
 
   const handleEvent = useCallback((message: StreamEventMessage) => {
-    const agentId = message.agentId;
+    const terminalId = message.terminalId;
 
     switch (message.type) {
       case 'text_delta': {
@@ -72,7 +72,7 @@ export function useTerminal(): UseTerminalReturn {
           // Create new streaming block
           const blockId = addBlock({
             type: 'text_streaming',
-            agentId,
+            terminalId,
             content: message.content,
             isStreaming: true,
             messageId,
@@ -96,7 +96,7 @@ export function useTerminal(): UseTerminalReturn {
         const toolUseId = message.toolUseId ?? crypto.randomUUID();
         const blockId = addBlock({
           type: 'tool_use',
-          agentId,
+          terminalId,
           toolUseId,
           toolName: message.toolName,
           toolInput: message.input,
@@ -122,7 +122,7 @@ export function useTerminal(): UseTerminalReturn {
         const thinkingId = message.thinkingId ?? crypto.randomUUID();
         const blockId = addBlock({
           type: 'thinking_streaming',
-          agentId,
+          terminalId,
           content: '',
           isStreaming: true,
           thinkingId,
@@ -164,7 +164,7 @@ export function useTerminal(): UseTerminalReturn {
       case 'error': {
         addBlock({
           type: 'error',
-          agentId,
+          terminalId,
           content: message.content,
         });
         break;
@@ -178,7 +178,7 @@ export function useTerminal(): UseTerminalReturn {
           if (sessionId) {
             addBlock({
               type: 'system',
-              agentId,
+              terminalId,
               content: `Session initialized: ${sessionId.slice(0, 8)}...`,
             });
           }
@@ -196,8 +196,8 @@ export function useTerminal(): UseTerminalReturn {
       case 'compact_complete': {
         addBlock({
           type: 'system',
-          agentId,
-          content: `━━━ Compacted ━━━\nPrevious: ${message.preTokens?.toLocaleString() ?? 'unknown'} tokens`,
+          terminalId,
+          content: `--- Compacted ---\nPrevious: ${message.preTokens?.toLocaleString() ?? 'unknown'} tokens`,
         });
         // Token count will update on next turn
         break;
@@ -234,8 +234,8 @@ export function useTerminal(): UseTerminalReturn {
     }
   }, []);
 
-  const clearBlocks = useCallback((agentId: string) => {
-    setBlocks(prev => prev.filter(b => b.agentId !== agentId));
+  const clearBlocks = useCallback((terminalId: string) => {
+    setBlocks(prev => prev.filter(b => b.terminalId !== terminalId));
   }, []);
 
   return { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory, clearBlocks };

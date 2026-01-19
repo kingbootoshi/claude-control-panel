@@ -19,7 +19,11 @@ export async function loadTerminals(): Promise<Terminal[]> {
   try {
     const data = await fs.readFile(getTerminalsPath(), "utf-8");
     const file = JSON.parse(data) as TerminalsFile;
-    return file.terminals;
+    return file.terminals.map((terminal) => ({
+      ...terminal,
+      isPersistent: terminal.isPersistent ?? false,
+      childAgents: terminal.childAgents ?? [],
+    }));
   } catch {
     // File doesn't exist or is invalid - return empty list
     return [];

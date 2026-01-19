@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Catalogue - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0a0a0a;
+      --bg-card: #141414;
+      --bg-hover: #1a1a1a;
+      --border: #262626;
+      --text: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #52525b;
+      --accent: #f59e0b;
+      --gold: #d4a853;
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 80px 48px;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 80px;
+    }
+
+    .header-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .header-title {
+      font-size: 56px;
+      font-weight: 300;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+
+    .header-title strong {
+      font-weight: 600;
+    }
+
+    .header-description {
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      max-width: 720px;
+      line-height: 1.7;
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      gap: 48px;
+      margin-top: 48px;
+      padding-top: 48px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Section Header */
+    .section-header {
+      margin-bottom: 32px;
+      margin-top: 80px;
+    }
+
+    .section-header:first-of-type {
+      margin-top: 0;
+    }
+
+    .section-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .section-badge.gold {
+      background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%);
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .section-description {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 32px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    }
+
+    .card.featured {
+      border-color: var(--gold);
+    }
+
+    .card.featured:hover {
+      border-color: var(--accent);
+      box-shadow: 0 24px 48px rgba(212, 168, 83, 0.15);
+    }
+
+    .card-preview {
+      aspect-ratio: 16 / 10;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.9;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .card:hover .card-preview img {
+      opacity: 1;
+      transform: scale(1.02);
+    }
+
+    /* Preview placeholders with distinct colors */
+    .preview-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* V2 previews */
+    .preview-v2-01 {
+      background: linear-gradient(135deg, #0a0b0d 0%, #0f1012 50%, #151719 100%);
+      color: #f59e0b;
+    }
+
+    .preview-v2-02 {
+      background: linear-gradient(135deg, #08090a 0%, #0d0e10 50%, #131416 100%);
+      color: #f59e0b;
+    }
+
+    .preview-v2-03 {
+      background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #111111 100%);
+      color: #f59e0b;
+    }
+
+    .preview-v2-04 {
+      background: linear-gradient(135deg, #050506 0%, #0a0a0c 50%, #0f0f12 100%);
+      color: #d4a853;
+    }
+
+    .preview-ghost {
+      background: linear-gradient(135deg, #0a0b0d 0%, #0f1012 50%, #151719 100%);
+      color: #f59e0b;
+    }
+
+    /* Original previews */
+    .preview-1 {
+      background: linear-gradient(135deg, #030508 0%, #0c1018 50%, #1a2030 100%);
+      color: #0ea5e9;
+    }
+
+    .preview-2 {
+      background: linear-gradient(135deg, #1e1e1e 0%, #252526 50%, #2d2d2d 100%);
+      color: #007acc;
+    }
+
+    .preview-3 {
+      background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 50%, #e5e5e5 100%);
+      color: #2563eb;
+    }
+
+    .preview-4 {
+      background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 50%, #ebe4d8 100%);
+      color: #1a1a1a;
+    }
+
+    .preview-5 {
+      background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #111111 100%);
+      color: #00ff00;
+    }
+
+    .card-number {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .card-number.featured {
+      background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%);
+      color: var(--bg);
+    }
+
+    .card-content {
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .card-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .card-tag {
+      padding: 6px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .card-arrow {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--bg);
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: all 0.3s;
+    }
+
+    .card:hover .card-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 80px 0;
+    }
+
+    /* Features Section */
+    .features {
+      margin-top: 120px;
+      padding-top: 80px;
+      border-top: 1px solid var(--border);
+    }
+
+    .features-header {
+      margin-bottom: 48px;
+    }
+
+    .features-title {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .features-description {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature {
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .feature-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-description {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 120px;
+      padding-top: 48px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-link:hover {
+      color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 48px 24px;
+      }
+
+      .header-title {
+        font-size: 36px;
+      }
+
+      .stats {
+        flex-wrap: wrap;
+        gap: 32px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-label">Design Catalogue</div>
+      <h1 class="header-title">
+        <strong>Claude Control Panel</strong><br>
+        UI Exploration
+      </h1>
+      <p class="header-description">
+        Design iterations for an all-in-one control panel for orchestrating Claude Code and Codex agents. The V2 series explores a refined three-column IDE layout with terminal-first interaction and progressive disclosure.
+      </p>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-value">17</span>
+          <span class="stat-label">Design Proposals</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">HTML</span>
+          <span class="stat-label">Format</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">Full</span>
+          <span class="stat-label">Interactive</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">Void</span>
+          <span class="stat-label">Theme</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- V2 Series - Featured -->
+    <div class="section-header">
+      <span class="section-badge gold">Featured</span>
+      <h2 class="section-title">V2 Series: Axia-Style Layout</h2>
+      <p class="section-description">
+        Three-column IDE layout with terminal as the primary interface. Left sidebar for navigation, center for conversation, right for context. Maintains the void black + amber aesthetic.
+      </p>
+    </div>
+
+    <div class="grid">
+      <!-- V2-01 Axia Style -->
+      <a href="v2-01-axia-style.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Axia Style</span>
+          </div>
+          <span class="card-number featured">V2-01</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Axia Style</h2>
+          <p class="card-subtitle">
+            Clean three-column layout inspired by Axia.app. Workspace navigation on left, terminal with command/output blocks in center, session context on right. Top tabs and bottom status bar.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Void Theme</span>
+            <span class="card-tag">Amber Accent</span>
+            <span class="card-tag">JetBrains Mono</span>
+            <span class="card-tag">200px / flex / 260px</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- V2-02 Task Dock -->
+      <a href="v2-02-task-dock.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-02">
+            <span>Task Dock</span>
+          </div>
+          <span class="card-number featured">V2-02</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Task Dock</h2>
+          <p class="card-subtitle">
+            Expanded left sidebar with task management focus. Stats cards, filter tabs, task cards with priority indicators, quick-add input. IBM Plex Sans for UI, JetBrains Mono for terminal.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Void Theme</span>
+            <span class="card-tag">Amber Accent</span>
+            <span class="card-tag">IBM Plex Sans</span>
+            <span class="card-tag">280px / flex / 240px</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- V2-03 Dense Mono -->
+      <a href="v2-03-dense-mono.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-03">
+            <span>Dense Mono</span>
+          </div>
+          <span class="card-number featured">V2-03</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Dense Mono</h2>
+          <p class="card-subtitle">
+            Ultra-compact information density with smaller font sizes and tighter spacing. Geist Mono throughout, pure black background, minimal chrome. Designed for power users.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Pure Black</span>
+            <span class="card-tag">Amber Accent</span>
+            <span class="card-tag">Geist Mono</span>
+            <span class="card-tag">220px / flex / 200px</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- V2-04 Obsidian -->
+      <a href="v2-04-obsidian.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-04">
+            <span>Obsidian</span>
+          </div>
+          <span class="card-number featured">V2-04</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Obsidian</h2>
+          <p class="card-subtitle">
+            Premium, refined aesthetic with warm undertones and gold accents. Inter for UI, subtle gradients, rounded corners, generous spacing. Feels like enterprise software.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Obsidian Theme</span>
+            <span class="card-tag">Gold Accent</span>
+            <span class="card-tag">Inter + JetBrains</span>
+            <span class="card-tag">240px / flex / 280px</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- UX Flows -->
+    <div class="section-header">
+      <span class="section-badge gold">UX Flows</span>
+      <h2 class="section-title">Complete UX Flow Simulation</h2>
+      <p class="section-description">
+        Full user journey based on V2-01 Axia Style. Simulates the experience of picking a project, managing tasks, running agents, reviewing git changes, browsing history, and research mode.
+      </p>
+    </div>
+
+    <div class="grid">
+      <!-- Home / Project Select -->
+      <a href="ux-flows/00-home-project-select.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Home</span>
+          </div>
+          <span class="card-number featured">UX-00</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Home / Project Select</h2>
+          <p class="card-subtitle">
+            Landing view with project cards, quick actions, recent sessions, and agent status. The entry point for all workflows.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Entry Point</span>
+            <span class="card-tag">Project Cards</span>
+            <span class="card-tag">Quick Actions</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Project Workspace -->
+      <a href="ux-flows/01-project-workspace.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Workspace</span>
+          </div>
+          <span class="card-number featured">UX-01</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Project Workspace</h2>
+          <p class="card-subtitle">
+            Main terminal view with command/output blocks, task preview sidebar, and pending action approvals.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Terminal</span>
+            <span class="card-tag">Task Preview</span>
+            <span class="card-tag">Approvals</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Kanban Tasks -->
+      <a href="ux-flows/02-kanban-tasks.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Kanban</span>
+          </div>
+          <span class="card-number featured">UX-02</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Kanban Tasks</h2>
+          <p class="card-subtitle">
+            Full kanban board with To Do, In Progress, Done columns. Click play to run tasks with agents.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Kanban Board</span>
+            <span class="card-tag">Task Cards</span>
+            <span class="card-tag">Click-to-Run</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Agent Running -->
+      <a href="ux-flows/03-agent-running.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Agent</span>
+          </div>
+          <span class="card-number featured">UX-03</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Agent Running</h2>
+          <p class="card-subtitle">
+            Agent actively executing a task with streaming output, tool calls, progress tracking, and change log.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Progress</span>
+            <span class="card-tag">Tool Calls</span>
+            <span class="card-tag">Change Tracking</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Git Panel -->
+      <a href="ux-flows/04-git-panel.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Git</span>
+          </div>
+          <span class="card-number featured">UX-04</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Git Panel</h2>
+          <p class="card-subtitle">
+            Staged/unstaged files, diff viewer with syntax highlighting, commit form, push/pull actions.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Diff Viewer</span>
+            <span class="card-tag">Stage/Commit</span>
+            <span class="card-tag">Branch Info</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- History -->
+      <a href="ux-flows/05-history.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>History</span>
+          </div>
+          <span class="card-number featured">UX-05</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Session History</h2>
+          <p class="card-subtitle">
+            Browse past sessions by date, filter by project/research, preview conversations, and /resume.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Session List</span>
+            <span class="card-tag">Preview</span>
+            <span class="card-tag">/resume</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Research Mode -->
+      <a href="ux-flows/06-research-mode.html" class="card featured">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-v2-01">
+            <span>Research</span>
+          </div>
+          <span class="card-number featured">UX-06</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Research Mode</h2>
+          <p class="card-subtitle">
+            No-project chat mode for general research, web search, running scripts anywhere on your system.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">No Project</span>
+            <span class="card-tag">Web Search</span>
+            <span class="card-tag">General Chat</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Ghost Protocol -->
+    <div class="section-header">
+      <span class="section-badge">Progressive</span>
+      <h2 class="section-title">Ghost Protocol</h2>
+      <p class="section-description">
+        Alternative approach with progressive disclosure. Minimal left rail expands to slide-out panels. Terminal remains central focus.
+      </p>
+    </div>
+
+    <div class="grid">
+      <a href="00-ghost-protocol.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-ghost">
+            <span>Ghost Protocol</span>
+          </div>
+          <span class="card-number">00</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Ghost Protocol</h2>
+          <p class="card-subtitle">
+            64px icon rail that expands to slide-out panels for tasks, git, history, projects, and agents. Everything is accessible without cluttering the main terminal view.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Void Theme</span>
+            <span class="card-tag">Amber Accent</span>
+            <span class="card-tag">Slide-out Panels</span>
+            <span class="card-tag">Progressive Disclosure</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Original Designs -->
+    <div class="section-header">
+      <span class="section-badge" style="background: var(--text-muted);">Archive</span>
+      <h2 class="section-title">Original Proposals</h2>
+      <p class="section-description">
+        Initial design explorations with different aesthetic directions. Kept for reference.
+      </p>
+    </div>
+
+    <div class="grid">
+      <!-- 01 Command Center -->
+      <a href="01-command-center.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-1">
+            <span>Command Center</span>
+          </div>
+          <span class="card-number">01</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Command Center</h2>
+          <p class="card-subtitle">
+            Military ops-inspired interface with a mission control aesthetic. Features scanline effects, status indicators, and a three-column layout.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Dark Theme</span>
+            <span class="card-tag">Cyan Accent</span>
+            <span class="card-tag">Orbitron Font</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- 02 IDE Fusion -->
+      <a href="02-ide-fusion.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-2">
+            <span>IDE Fusion</span>
+          </div>
+          <span class="card-number">02</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">IDE Fusion</h2>
+          <p class="card-subtitle">
+            VS Code and JetBrains-inspired layout with activity bar, file explorer, and split editor panes.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Dark Theme</span>
+            <span class="card-tag">Blue Accent</span>
+            <span class="card-tag">Geist Font</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- 03 Spatial Canvas -->
+      <a href="03-spatial-canvas.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-3">
+            <span>Spatial Canvas</span>
+          </div>
+          <span class="card-number">03</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Spatial Canvas</h2>
+          <p class="card-subtitle">
+            Whiteboard-style infinite canvas with draggable nodes for agents, tasks, and git panels.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Light Theme</span>
+            <span class="card-tag">Blue Accent</span>
+            <span class="card-tag">Node-Based</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- 04 Editorial -->
+      <a href="04-editorial.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-4">
+            <span>Editorial</span>
+          </div>
+          <span class="card-number">04</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Editorial Dashboard</h2>
+          <p class="card-subtitle">
+            High-end magazine-inspired design with warm tones and refined card-based layout.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Light Theme</span>
+            <span class="card-tag">Neutral Tones</span>
+            <span class="card-tag">Card Layout</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- 05 Brutalist -->
+      <a href="05-brutalist.html" class="card">
+        <div class="card-preview">
+          <div class="preview-placeholder preview-5">
+            <span>Brutalist</span>
+          </div>
+          <span class="card-number">05</span>
+          <span class="card-arrow">&#8594;</span>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Brutalist Terminal</h2>
+          <p class="card-subtitle">
+            Raw, utilitarian aesthetic with pure black/white contrast and CRT effects.
+          </p>
+          <div class="card-tags">
+            <span class="card-tag">Dark Theme</span>
+            <span class="card-tag">Green Accent</span>
+            <span class="card-tag">CRT Effects</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Features Section -->
+    <section class="features">
+      <div class="features-header">
+        <h2 class="features-title">Core Features</h2>
+        <p class="features-description">
+          All designs implement the same core functionality with different visual approaches.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature">
+          <div class="feature-icon">&#128187;</div>
+          <h3 class="feature-title">Terminal-First</h3>
+          <p class="feature-description">
+            The terminal is THE interface. Talk to navigate, execute tasks, and manage your workspace through conversation.
+          </p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">&#9745;</div>
+          <h3 class="feature-title">Task Management</h3>
+          <p class="feature-description">
+            Kanban-style task tracking with drag-and-drop. Click tasks to assign to agents.
+          </p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">&#128172;</div>
+          <h3 class="feature-title">Multi-Agent Chat</h3>
+          <p class="feature-description">
+            Chat with Claude Code and Codex agents. View tool calls, approvals, and streaming responses.
+          </p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">&#9906;</div>
+          <h3 class="feature-title">Git Integration</h3>
+          <p class="feature-description">
+            View diffs, stage changes, switch branches, and commit from the interface.
+          </p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">&#128337;</div>
+          <h3 class="feature-title">Session History</h3>
+          <p class="feature-description">
+            Resume conversations with /resume. Track changes made by each agent session.
+          </p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">&#128196;</div>
+          <h3 class="feature-title">File Browser</h3>
+          <p class="feature-description">
+            Browse workspace files. See what agents are reading and modifying in real-time.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Claude Control Panel - Design Catalogue</span>
+      <div class="footer-links">
+        <a href="v2-01-axia-style.html" class="footer-link">V2-01</a>
+        <a href="ux-flows/00-home-project-select.html" class="footer-link">UX Flows</a>
+        <a href="00-ghost-protocol.html" class="footer-link">Ghost</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

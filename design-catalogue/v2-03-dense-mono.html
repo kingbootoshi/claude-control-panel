@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>V2-03 Dense Mono - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;500&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'Geist Mono';
+      src: local('Geist Mono'), local('GeistMono');
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-0: #000000;
+      --bg-1: #0a0a0a;
+      --bg-2: #111111;
+      --bg-3: #171717;
+      --border: #262626;
+      --border-subtle: #1a1a1a;
+      --accent: #f59e0b;
+      --accent-soft: rgba(245, 158, 11, 0.1);
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --text-0: #fafafa;
+      --text-1: #d4d4d4;
+      --text-2: #737373;
+      --text-3: #404040;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Geist Mono', 'JetBrains Mono', monospace;
+      background: var(--bg-0);
+      color: var(--text-1);
+      font-size: 12px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ultra-dense three column layout */
+    .app {
+      display: grid;
+      grid-template-columns: 220px 1fr 200px;
+      grid-template-rows: 32px 1fr 24px;
+      height: 100dvh;
+    }
+
+    /* =========================================================================
+       TOP BAR - Minimal
+       ========================================================================= */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 12px;
+    }
+
+    .logo {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+
+    .divider {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-2);
+    }
+
+    .breadcrumb-sep {
+      color: var(--text-3);
+    }
+
+    .breadcrumb-current {
+      color: var(--text-1);
+    }
+
+    .top-spacer { flex: 1; }
+
+    .top-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 10px;
+      color: var(--text-2);
+    }
+
+    .top-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .top-stat .value {
+      color: var(--text-1);
+    }
+
+    .top-stat .accent {
+      color: var(--accent);
+    }
+
+    /* =========================================================================
+       LEFT SIDEBAR - Compact Navigation
+       ========================================================================= */
+    .sidebar {
+      background: var(--bg-1);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .section-header {
+      padding: 4px 12px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-3);
+      text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.1s;
+      font-size: 11px;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-2);
+      color: var(--text-1);
+    }
+
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .nav-icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+    }
+
+    .nav-item.active .nav-icon {
+      opacity: 1;
+    }
+
+    .nav-count {
+      margin-left: auto;
+      font-size: 9px;
+      padding: 1px 5px;
+      background: var(--bg-3);
+      border-radius: 3px;
+      color: var(--text-2);
+    }
+
+    .nav-item.active .nav-count {
+      background: var(--accent);
+      color: var(--bg-0);
+    }
+
+    /* Projects list */
+    .project-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .project-item:hover {
+      background: var(--bg-2);
+      color: var(--text-1);
+    }
+
+    .project-item.active {
+      color: var(--text-0);
+    }
+
+    .project-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+    }
+
+    .project-item.active .project-dot {
+      background: var(--accent);
+    }
+
+    /* =========================================================================
+       MAIN TERMINAL - Dense Output
+       ========================================================================= */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-0);
+      overflow: hidden;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .term-tab {
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border-subtle);
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .term-tab:hover {
+      background: var(--bg-2);
+      color: var(--text-1);
+    }
+
+    .term-tab.active {
+      background: var(--bg-0);
+      color: var(--text-0);
+    }
+
+    .term-tab .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-3);
+    }
+
+    .term-tab.active .dot {
+      background: var(--green);
+    }
+
+    .term-tab-close {
+      margin-left: 4px;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .term-tab:hover .term-tab-close {
+      opacity: 1;
+    }
+
+    .terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      font-size: 12px;
+    }
+
+    /* Conversation blocks */
+    .conv-block {
+      margin-bottom: 16px;
+    }
+
+    .conv-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .conv-role {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .conv-role.user { color: var(--accent); }
+    .conv-role.agent { color: var(--text-2); }
+
+    .conv-time {
+      font-size: 9px;
+      color: var(--text-3);
+    }
+
+    .conv-text {
+      color: var(--text-1);
+      padding-left: 2px;
+    }
+
+    /* Tool calls - dense format */
+    .tool-call {
+      margin: 8px 0;
+      background: var(--bg-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tool-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tool-badge.read { background: var(--blue); color: var(--bg-0); }
+    .tool-badge.edit { background: var(--purple); color: var(--bg-0); }
+    .tool-badge.bash { background: var(--green); color: var(--bg-0); }
+    .tool-badge.write { background: var(--accent); color: var(--bg-0); }
+
+    .tool-path {
+      font-size: 11px;
+      color: var(--text-1);
+    }
+
+    .tool-status {
+      margin-left: auto;
+      font-size: 9px;
+      color: var(--green);
+    }
+
+    .tool-body {
+      padding: 8px 10px;
+      font-size: 11px;
+    }
+
+    .tool-line {
+      display: flex;
+      gap: 8px;
+      padding: 1px 0;
+    }
+
+    .line-num {
+      color: var(--text-3);
+      user-select: none;
+      min-width: 24px;
+      text-align: right;
+    }
+
+    .line-code {
+      color: var(--text-1);
+    }
+
+    .line-code .kw { color: var(--purple); }
+    .line-code .fn { color: var(--blue); }
+    .line-code .str { color: var(--green); }
+    .line-code .num { color: var(--accent); }
+    .line-code .cmt { color: var(--text-3); font-style: italic; }
+
+    /* Output grid */
+    .output-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .output-cell {
+      padding: 6px 8px;
+      background: var(--bg-2);
+      border-radius: 3px;
+    }
+
+    .output-key {
+      font-size: 9px;
+      color: var(--text-3);
+      margin-bottom: 2px;
+    }
+
+    .output-val {
+      font-size: 11px;
+      color: var(--text-1);
+    }
+
+    .output-val.hl { color: var(--accent); }
+
+    /* Agent response */
+    .agent-text {
+      color: var(--text-2);
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+
+    /* Action block */
+    .action-block {
+      margin: 12px 0;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .action-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--accent-soft);
+    }
+
+    .action-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      background: var(--accent);
+      color: var(--bg-0);
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .action-title {
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .action-body {
+      padding: 10px;
+      background: var(--bg-1);
+    }
+
+    .action-desc {
+      color: var(--text-1);
+      margin-bottom: 10px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .action-btn.primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: var(--bg-0);
+      font-weight: 500;
+    }
+
+    .action-btn.primary:hover {
+      background: #d97706;
+    }
+
+    .action-btn.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+    }
+
+    .action-btn.ghost:hover {
+      border-color: var(--text-2);
+      color: var(--text-1);
+    }
+
+    /* Input */
+    .input-area {
+      padding: 10px 16px;
+      background: var(--bg-1);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-prompt {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text-0);
+      outline: none;
+    }
+
+    .input-field::placeholder {
+      color: var(--text-3);
+    }
+
+    .input-hint {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+
+    /* =========================================================================
+       RIGHT SIDEBAR - Info Dense
+       ========================================================================= */
+    .info-panel {
+      background: var(--bg-1);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 11px;
+    }
+
+    .info-section {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .info-section:last-child {
+      border-bottom: none;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .info-title {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-3);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    /* Session info */
+    .session-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .session-cell {
+      padding: 6px 8px;
+      background: var(--bg-2);
+      border-radius: 3px;
+    }
+
+    .session-key {
+      font-size: 9px;
+      color: var(--text-3);
+    }
+
+    .session-val {
+      color: var(--text-1);
+      margin-top: 2px;
+    }
+
+    .session-val.hl { color: var(--accent); }
+
+    /* Git compact */
+    .git-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+
+    .git-key {
+      color: var(--text-3);
+    }
+
+    .git-val {
+      color: var(--text-1);
+    }
+
+    .git-val.branch { color: var(--blue); }
+    .git-val.staged { color: var(--green); }
+    .git-val.mod { color: var(--accent); }
+
+    /* Agent list */
+    .agent-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+    }
+
+    .agent-name {
+      color: var(--text-1);
+    }
+
+    .agent-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+    }
+
+    .agent-status .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+
+    .agent-status.active { color: var(--green); }
+    .agent-status.active .dot { background: var(--green); }
+    .agent-status.idle { color: var(--text-3); }
+    .agent-status.idle .dot { background: var(--text-3); }
+
+    /* Files compact */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+
+    .file-row:hover {
+      color: var(--text-1);
+    }
+
+    .file-icon {
+      width: 12px;
+      height: 12px;
+      opacity: 0.5;
+    }
+
+    .file-row.folder .file-icon {
+      color: var(--accent);
+      opacity: 1;
+    }
+
+    /* =========================================================================
+       BOTTOM BAR
+       ========================================================================= */
+    .bottom-bar {
+      grid-column: 1 / -1;
+      background: var(--bg-1);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 10px;
+    }
+
+    .bar-left,
+    .bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .bar-right {
+      justify-content: flex-end;
+    }
+
+    .bar-item {
+      color: var(--text-3);
+    }
+
+    .bar-item .v { color: var(--text-2); }
+    .bar-item .hl { color: var(--accent); }
+    .bar-item .ok { color: var(--green); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    /* Back link */
+    .back-link {
+      position: fixed;
+      top: 8px;
+      right: 12px;
+      padding: 4px 8px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-3);
+      text-decoration: none;
+      font-size: 9px;
+      z-index: 1000;
+    }
+
+    .back-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">catalogue</a>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <span class="logo">CCP</span>
+      <span class="divider"></span>
+      <div class="breadcrumb">
+        <span>workspace</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">claude_control_panel</span>
+      </div>
+      <div class="top-spacer"></div>
+      <div class="top-stats">
+        <span class="top-stat"><span class="value">2</span> agents</span>
+        <span class="top-stat"><span class="value">45.2k</span> tokens</span>
+        <span class="top-stat"><span class="accent">3</span> pending</span>
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="section-header">Navigate</div>
+        <div class="nav-item active">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span>Terminal</span>
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>Tasks</span>
+          <span class="nav-count">12</span>
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v10"/>
+          </svg>
+          <span>Agents</span>
+          <span class="nav-count">2</span>
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <span>History</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-header">Projects</div>
+        <div class="project-item active">
+          <span class="project-dot"></span>
+          <span>claude_control_panel</span>
+        </div>
+        <div class="project-item">
+          <span class="project-dot"></span>
+          <span>video-toolkit</span>
+        </div>
+        <div class="project-item">
+          <span class="project-dot"></span>
+          <span>ghost-workspace</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-header">Quick Actions</div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span>New Task</span>
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span>Git Commit</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Terminal -->
+    <main class="main">
+      <div class="terminal-tabs">
+        <button class="term-tab active">
+          <span class="dot"></span>
+          ghost
+          <span class="term-tab-close">x</span>
+        </button>
+        <button class="term-tab">
+          <span class="dot"></span>
+          builder
+          <span class="term-tab-close">x</span>
+        </button>
+        <button class="term-tab">+</button>
+      </div>
+
+      <div class="terminal">
+        <div class="conv-block">
+          <div class="conv-header">
+            <span class="conv-role user">you</span>
+            <span class="conv-time">14:34</span>
+          </div>
+          <div class="conv-text">analyze the auth setup and add github oauth</div>
+        </div>
+
+        <div class="conv-block">
+          <div class="conv-header">
+            <span class="conv-role agent">ghost</span>
+            <span class="conv-time">14:34</span>
+          </div>
+
+          <div class="tool-call">
+            <div class="tool-header">
+              <span class="tool-badge read">read</span>
+              <span class="tool-path">src/server.ts</span>
+              <span class="tool-status">done</span>
+            </div>
+            <div class="tool-body">
+              <div class="tool-line">
+                <span class="line-num">45</span>
+                <span class="line-code"><span class="kw">const</span> auth = <span class="fn">createAuth</span>({ <span class="str">'basic'</span> })</span>
+              </div>
+              <div class="tool-line">
+                <span class="line-num">46</span>
+                <span class="line-code">app.<span class="fn">use</span>(auth.<span class="fn">middleware</span>())</span>
+              </div>
+              <div class="tool-line">
+                <span class="line-num">47</span>
+                <span class="line-code"><span class="cmt">// TODO: add oauth providers</span></span>
+              </div>
+              <div class="output-grid">
+                <div class="output-cell">
+                  <div class="output-key">lines</div>
+                  <div class="output-val">287</div>
+                </div>
+                <div class="output-cell">
+                  <div class="output-key">auth</div>
+                  <div class="output-val hl">basic</div>
+                </div>
+                <div class="output-cell">
+                  <div class="output-key">imports</div>
+                  <div class="output-val">12</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tool-call">
+            <div class="tool-header">
+              <span class="tool-badge read">read</span>
+              <span class="tool-path">src/config.ts</span>
+              <span class="tool-status">done</span>
+            </div>
+            <div class="tool-body">
+              <div class="tool-line">
+                <span class="line-num">12</span>
+                <span class="line-code">GITHUB_CLIENT_ID: z.<span class="fn">string</span>().<span class="fn">optional</span>()</span>
+              </div>
+              <div class="tool-line">
+                <span class="line-num">13</span>
+                <span class="line-code">GITHUB_CLIENT_SECRET: z.<span class="fn">string</span>().<span class="fn">optional</span>()</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="agent-text">
+            Found existing config placeholders for GitHub OAuth. The server uses basic auth
+            middleware. I'll add @octokit/oauth-app to handle the OAuth flow.
+          </p>
+
+          <div class="action-block">
+            <div class="action-header">
+              <span class="action-badge">action</span>
+              <span class="action-title">Create src/auth/github.ts</span>
+            </div>
+            <div class="action-body">
+              <p class="action-desc">
+                New file with OAuth callback handler, token storage, and session management.
+                Will add @octokit/oauth-app, @octokit/rest to dependencies.
+              </p>
+              <div class="action-btns">
+                <button class="action-btn primary">approve</button>
+                <button class="action-btn ghost">edit</button>
+                <button class="action-btn ghost">reject</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-row">
+          <span class="input-prompt">$</span>
+          <input type="text" class="input-field" placeholder="message or command...">
+          <span class="input-hint">enter to send</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Info Panel -->
+    <aside class="info-panel">
+      <div class="info-section">
+        <div class="info-title">Session</div>
+        <div class="session-grid">
+          <div class="session-cell">
+            <div class="session-key">tokens</div>
+            <div class="session-val hl">45.2k</div>
+          </div>
+          <div class="session-cell">
+            <div class="session-key">time</div>
+            <div class="session-val">1h 42m</div>
+          </div>
+          <div class="session-cell">
+            <div class="session-key">cost</div>
+            <div class="session-val">$0.23</div>
+          </div>
+          <div class="session-cell">
+            <div class="session-key">model</div>
+            <div class="session-val">opus</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-title">Git</div>
+        <div class="git-row">
+          <span class="git-key">branch</span>
+          <span class="git-val branch">main</span>
+        </div>
+        <div class="git-row">
+          <span class="git-key">staged</span>
+          <span class="git-val staged">3</span>
+        </div>
+        <div class="git-row">
+          <span class="git-key">modified</span>
+          <span class="git-val mod">2</span>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-title">Agents</div>
+        <div class="agent-row">
+          <span class="agent-name">ghost</span>
+          <span class="agent-status active">
+            <span class="dot"></span>
+            active
+          </span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-name">builder</span>
+          <span class="agent-status idle">
+            <span class="dot"></span>
+            idle
+          </span>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-title">Files</div>
+        <div class="file-row folder">
+          <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+          <span>src/</span>
+        </div>
+        <div class="file-row">
+          <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          </svg>
+          <span>server.ts</span>
+        </div>
+        <div class="file-row">
+          <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          </svg>
+          <span>config.ts</span>
+        </div>
+        <div class="file-row folder">
+          <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+          <span>web/</span>
+        </div>
+        <div class="file-row">
+          <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          </svg>
+          <span>CLAUDE.md</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Bottom Bar -->
+    <footer class="bottom-bar">
+      <div class="bar-left">
+        <span class="bar-item">ccp <span class="v">v0.1.0</span></span>
+        <span class="bar-item">project: <span class="v">claude_control_panel</span></span>
+      </div>
+      <div class="bar-right">
+        <span class="bar-item"><span class="ok">connected</span></span>
+        <span class="bar-item">tasks: <span class="v">12</span></span>
+        <span class="bar-item">pending: <span class="hl">3</span></span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

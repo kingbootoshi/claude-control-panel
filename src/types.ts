@@ -1,4 +1,5 @@
 export type TerminalStatus = "starting" | "running" | "idle" | "closed" | "dead";
+export type ChildAgentStatus = "running" | "complete" | "failed";
 
 // Project - tracked directory on filesystem
 export interface Project {
@@ -9,6 +10,23 @@ export interface Project {
   lastOpenedAt: string;    // ISO date
 }
 
+export interface ChildAgent {
+  id: string;              // codex job id
+  parentSessionId: string; // Claude session that spawned it
+  tmuxSession: string;     // tmux session name
+  status: ChildAgentStatus;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export type ChildAgentEventType = "started" | "completed" | "failed";
+
+export interface ChildAgentEvent {
+  sessionId: string;
+  childAgent: ChildAgent;
+  event: ChildAgentEventType;
+}
+
 // Terminal - running Claude session
 export interface Terminal {
   id: string;
@@ -16,6 +34,17 @@ export interface Terminal {
   sessionId: string | null;  // Claude's session ID for resume
   status: TerminalStatus;
   createdAt: string;         // ISO date
+  isPersistent?: boolean;
+  childAgents: ChildAgent[];
+}
+
+export interface SessionSummary {
+  sessionId: string;
+  projectId: string;
+  createdAt: string;
+  lastMessagePreview: string | null;
+  tokenCount: number;
+  status: TerminalStatus;
 }
 
 // Terminal event with terminalId for routing
@@ -79,6 +108,57 @@ export interface FileEntry {
   path: string;
   type: "file" | "directory";
   children?: FileEntry[];
+}
+
+export interface GitStatus {
+  staged: string[];
+  unstaged: string[];
+  untracked: string[];
+}
+
+export interface GitCommit {
+  hash: string;
+  author: string;
+  date: string;
+  message: string;
+}
+
+export interface GitDiff {
+  file: string;
+  hunks: Array<{
+    header: string;
+    lines: string[];
+  }>;
+}
+
+export interface GitBranch {
+  name: string;
+  current: boolean;
+}
+
+export interface TmuxSession {
+  name: string;
+  windows: number;
+  created: string;
+  attached: boolean;
+}
+
+export interface TmuxPane {
+  id: string;
+  sessionName: string;
+  windowIndex: number;
+  paneIndex: number;
+  cwd: string;
+  command: string;
+  active: boolean;
+}
+
+export interface CaptureOpts {
+  lines?: number;
+  start?: string;
+  end?: string;
+  join?: boolean;
+  escape?: boolean;
 }
 
 export type TextContent = { type: "text"; text: string };
@@ -150,6 +230,7 @@ export interface SessionLike {
 
 // Terminal manager interface - manages multiple sessions
 export interface TerminalManagerLike {
+  getOrCreateGhost(): Promise<string>;
   spawn(projectId: string | null): Promise<string>;
   send(terminalId: string, content: MessageContent): Promise<void>;
   close(terminalId: string): Promise<void>;
@@ -157,6 +238,9 @@ export interface TerminalManagerLike {
   kill(terminalId: string): Promise<void>;
   list(): Terminal[];
   get(terminalId: string): Terminal | undefined;
+  getMetrics(terminalId: string): SessionMetrics | null;
+  triggerCompact(terminalId: string, instructions?: string): Promise<void>;
+  listChildAgents(sessionId: string): ChildAgent[];
   hasConfig(): boolean;
   getAssistantName(): string;
   on(event: "terminal_event", listener: (data: TerminalEvent) => void): this;
@@ -169,4 +253,30 @@ export interface SessionManagerLike extends SessionLike {
   setupAgent(name: string, claudeMd: string): Promise<{ agentId: string }>;
   getConfig(): { primaryAgentId: string; assistantName: string } | null;
   hasConfig(): boolean;
+}
+
+export interface SessionMetrics {
+  currentContextTokens: number;
+  totalInputTokensSpent: number;
+  totalOutputTokens: number;
+  totalCostUsd: number;
+  turnCount: number;
+  compactionCount: number;
+  lastCompactedAt: string | null;
+  compactionHistory: CompactionRecord[];
+}
+
+export interface CompactionRecord {
+  compactedAt: string;          // ISO timestamp
+  preTokens: number;            // tokens before compaction
+  postTokens: number;           // tokens after compaction
+  trigger: "auto" | "manual";   // what triggered it
+  instructionsUsed: string;     // custom instructions sent
+}
+
+export interface SmartCompactConfig {
+  enabled: boolean;
+  thresholdTokens: number;
+  warningThresholdTokens: number;
+  customInstructions: string | null;
 }

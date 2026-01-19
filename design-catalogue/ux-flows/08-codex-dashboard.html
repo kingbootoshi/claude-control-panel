@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCP - Codex Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --accent-glow: rgba(245, 158, 11, 0.08);
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --cyan: #06b6d4;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 200px 1fr 320px;
+      grid-template-rows: 40px 1fr 28px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+
+    .top-bar-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top-bar-title svg {
+      width: 16px;
+      height: 16px;
+      color: var(--cyan);
+    }
+
+    .top-bar-spacer { flex: 1; }
+
+    .top-bar-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .status-dot.pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-value {
+      color: var(--text);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-back {
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .sidebar-back:hover {
+      color: var(--accent);
+    }
+
+    .stats-card {
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      margin: 0 8px 8px;
+      border-radius: 6px;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .stats-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .stats-label {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .stats-value {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .stats-value.running { color: var(--green); }
+    .stats-value.queued { color: var(--accent); }
+    .stats-value.completed { color: var(--blue); }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      font-size: 13px;
+    }
+
+    .nav-item:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--void-elevated);
+      color: var(--text);
+      border-left-color: var(--cyan);
+    }
+
+    .nav-item svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--cyan);
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: var(--void-elevated);
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--cyan);
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--void-border);
+      margin: 8px 16px;
+    }
+
+    /* Main Content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .main-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--void-border);
+      color: var(--text);
+    }
+
+    .toolbar-btn.primary {
+      background: var(--cyan);
+      border-color: var(--cyan);
+      color: var(--void-deep);
+    }
+
+    .toolbar-btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    .toolbar-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .toolbar-spacer { flex: 1; }
+
+    .filter-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-tab {
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-tab:hover {
+      color: var(--text);
+    }
+
+    .filter-tab.active {
+      background: var(--void-elevated);
+      border-color: var(--void-border);
+      color: var(--text);
+    }
+
+    /* Job List */
+    .job-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .job-card {
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .job-card:hover {
+      border-color: var(--cyan);
+    }
+
+    .job-card.selected {
+      border-color: var(--cyan);
+      background: var(--void-elevated);
+    }
+
+    .job-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .job-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .job-status.running {
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .job-status.queued { background: var(--accent); }
+    .job-status.completed { background: var(--blue); }
+    .job-status.failed { background: var(--red); }
+
+    .job-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .job-id {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .job-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .job-reasoning {
+      padding: 2px 6px;
+      background: var(--void-elevated);
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .job-reasoning.low { color: var(--text-dim); }
+    .job-reasoning.medium { color: var(--accent); }
+    .job-reasoning.high { color: var(--cyan); }
+    .job-reasoning.xhigh { color: var(--purple); }
+
+    .job-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .job-prompt {
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .job-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--void-elevated);
+    }
+
+    .job-stat {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .job-stat .value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .job-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 6px;
+    }
+
+    .job-action-btn {
+      padding: 4px 10px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .job-action-btn:hover {
+      background: var(--void-border);
+      color: var(--text);
+    }
+
+    .job-action-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* Right Panel - Job Details */
+    .right-panel {
+      background: var(--void-surface);
+      border-left: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .panel-close {
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .panel-close:hover {
+      color: var(--text);
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .panel-section:last-child {
+      border-bottom: none;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+    }
+
+    .detail-key {
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    .detail-value {
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .detail-value.accent { color: var(--accent); }
+    .detail-value.cyan { color: var(--cyan); }
+    .detail-value.green { color: var(--green); }
+    .detail-value.red { color: var(--red); }
+
+    /* Prompt display */
+    .prompt-display {
+      background: var(--void-elevated);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    /* Result display */
+    .result-display {
+      background: var(--void-elevated);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .result-display .success { color: var(--green); }
+    .result-display .error { color: var(--red); }
+    .result-display .highlight { color: var(--cyan); }
+
+    /* Changes list */
+    .changes-list {
+      margin-top: 8px;
+    }
+
+    .change-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 11px;
+    }
+
+    .change-type {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .change-type.created {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--green);
+    }
+
+    .change-type.modified {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--accent);
+    }
+
+    .change-type.deleted {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--red);
+    }
+
+    .change-path {
+      color: var(--text);
+      flex: 1;
+    }
+
+    .change-lines {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .change-lines .added { color: var(--green); }
+    .change-lines .removed { color: var(--red); }
+
+    /* Apply changes button */
+    .apply-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--cyan);
+      border: none;
+      border-radius: 4px;
+      color: var(--void-deep);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 12px;
+    }
+
+    .apply-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* New Job Form */
+    .new-job-form {
+      padding: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--cyan);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .form-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .reasoning-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    .reasoning-option {
+      flex: 1;
+      padding: 8px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .reasoning-option:hover {
+      border-color: var(--text-muted);
+    }
+
+    .reasoning-option.selected {
+      border-color: var(--cyan);
+      background: rgba(6, 182, 212, 0.1);
+    }
+
+    .reasoning-option-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .reasoning-option-time {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .checkbox-box {
+      width: 16px;
+      height: 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checkbox-box.checked {
+      background: var(--cyan);
+      border-color: var(--cyan);
+    }
+
+    .checkbox-box svg {
+      width: 10px;
+      height: 10px;
+      color: var(--void-deep);
+    }
+
+    .checkbox-label {
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .start-job-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--cyan);
+      border: none;
+      border-radius: 4px;
+      color: var(--void-deep);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .start-job-btn:hover {
+      opacity: 0.9;
+    }
+
+    .start-job-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+    }
+
+    .status-bar-left,
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-bar-item {
+      color: var(--text-dim);
+    }
+
+    .status-bar-item .value {
+      color: var(--text);
+    }
+
+    .status-bar-item .accent {
+      color: var(--cyan);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Navigation */
+    .flow-nav {
+      position: fixed;
+      bottom: 36px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .flow-nav a {
+      padding: 6px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .flow-nav a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .flow-nav a.current {
+      background: var(--cyan);
+      border-color: var(--cyan);
+      color: var(--void-deep);
+    }
+  </style>
+</head>
+<body>
+  <div class="flow-nav">
+    <a href="00-home-project-select.html">home</a>
+    <a href="01-project-workspace.html">workspace</a>
+    <a href="02-kanban-tasks.html">kanban</a>
+    <a href="03-agent-running.html">agent</a>
+    <a href="04-git-panel.html">git</a>
+    <a href="05-history.html">history</a>
+    <a href="06-research-mode.html">general</a>
+    <a href="07-tmux-orchestration.html">tmux</a>
+    <a href="08-codex-dashboard.html" class="current">codex</a>
+  </div>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="window-controls">
+        <span class="window-dot red"></span>
+        <span class="window-dot yellow"></span>
+        <span class="window-dot green"></span>
+      </div>
+      <div class="top-bar-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        Codex Agents
+      </div>
+      <div class="top-bar-spacer"></div>
+      <div class="top-bar-status">
+        <div class="status-item">
+          <span class="status-dot pulse"></span>
+          <span>codex connected</span>
+        </div>
+        <div class="status-item">
+          <span class="status-value">2</span> running
+        </div>
+        <div class="status-item">
+          <span class="status-value">1</span> queued
+        </div>
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>Codex</span>
+        <a href="00-home-project-select.html" class="sidebar-back">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-row">
+          <span class="stats-label">Running</span>
+          <span class="stats-value running">2</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Queued</span>
+          <span class="stats-value queued">1</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Completed (24h)</span>
+          <span class="stats-value completed">8</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>all jobs</span>
+          <span class="nav-badge">11</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12l2 2 4-4"/>
+          </svg>
+          <span>completed</span>
+          <span class="nav-badge">8</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          <span>history</span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>settings</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content - Job List -->
+    <main class="main">
+      <div class="main-toolbar">
+        <button class="toolbar-btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New Job
+        </button>
+        <button class="toolbar-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+          </svg>
+          Refresh
+        </button>
+        <button class="toolbar-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          </svg>
+          Clean
+        </button>
+        <div class="toolbar-spacer"></div>
+        <div class="filter-tabs">
+          <button class="filter-tab active">All</button>
+          <button class="filter-tab">Running</button>
+          <button class="filter-tab">Completed</button>
+          <button class="filter-tab">Failed</button>
+        </div>
+      </div>
+
+      <div class="job-list">
+        <!-- Running Job -->
+        <div class="job-card selected">
+          <div class="job-header">
+            <div class="job-status running"></div>
+            <div class="job-info">
+              <div class="job-id">sec_audit_01</div>
+              <div class="job-meta">
+                <span class="job-reasoning high">high</span>
+                <span>claude_control_panel</span>
+              </div>
+            </div>
+            <span class="job-time">12m 34s</span>
+          </div>
+          <div class="job-prompt">
+            Analyze the authentication and authorization flow for security vulnerabilities. Check OAuth implementation, session management, and token storage.
+          </div>
+          <div class="job-footer">
+            <span class="job-stat">Files: <span class="value">8</span></span>
+            <span class="job-stat">Changes: <span class="value">3</span></span>
+            <div class="job-actions">
+              <button class="job-action-btn">view</button>
+              <button class="job-action-btn danger">kill</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Running Job 2 -->
+        <div class="job-card">
+          <div class="job-header">
+            <div class="job-status running"></div>
+            <div class="job-info">
+              <div class="job-id">impl_diff_01</div>
+              <div class="job-meta">
+                <span class="job-reasoning xhigh">xhigh</span>
+                <span>claude_control_panel</span>
+              </div>
+            </div>
+            <span class="job-time">8m 12s</span>
+          </div>
+          <div class="job-prompt">
+            Implement a git diff viewer component with syntax highlighting. Support unified and split view modes. Use @git-diff-view/react library.
+          </div>
+          <div class="job-footer">
+            <span class="job-stat">Files: <span class="value">4</span></span>
+            <span class="job-stat">Changes: <span class="value">2</span></span>
+            <div class="job-actions">
+              <button class="job-action-btn">view</button>
+              <button class="job-action-btn danger">kill</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Queued Job -->
+        <div class="job-card">
+          <div class="job-header">
+            <div class="job-status queued"></div>
+            <div class="job-info">
+              <div class="job-id">test_cov_02</div>
+              <div class="job-meta">
+                <span class="job-reasoning medium">medium</span>
+                <span>claude_control_panel</span>
+              </div>
+            </div>
+            <span class="job-time">queued</span>
+          </div>
+          <div class="job-prompt">
+            Analyze test coverage for the terminal components. Identify untested code paths and generate comprehensive test cases.
+          </div>
+          <div class="job-footer">
+            <span class="job-stat">Position: <span class="value">2</span></span>
+            <div class="job-actions">
+              <button class="job-action-btn">view</button>
+              <button class="job-action-btn danger">cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Completed Job -->
+        <div class="job-card">
+          <div class="job-header">
+            <div class="job-status completed"></div>
+            <div class="job-info">
+              <div class="job-id">refactor_01</div>
+              <div class="job-meta">
+                <span class="job-reasoning high">high</span>
+                <span>claude_control_panel</span>
+              </div>
+            </div>
+            <span class="job-time">completed 23m ago</span>
+          </div>
+          <div class="job-prompt">
+            Refactor the terminal manager to support multiple concurrent sessions. Extract session state into a separate module.
+          </div>
+          <div class="job-footer">
+            <span class="job-stat">Duration: <span class="value">18m 42s</span></span>
+            <span class="job-stat">Files: <span class="value">6</span></span>
+            <span class="job-stat">+<span class="value" style="color: var(--green);">245</span> -<span class="value" style="color: var(--red);">89</span></span>
+            <div class="job-actions">
+              <button class="job-action-btn">view</button>
+              <button class="job-action-btn">apply</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Failed Job -->
+        <div class="job-card">
+          <div class="job-header">
+            <div class="job-status failed"></div>
+            <div class="job-info">
+              <div class="job-id">migrate_01</div>
+              <div class="job-meta">
+                <span class="job-reasoning low">low</span>
+                <span>legacy-api</span>
+              </div>
+            </div>
+            <span class="job-time">failed 1h ago</span>
+          </div>
+          <div class="job-prompt">
+            Migrate the legacy API endpoints to the new REST structure. Update all route handlers.
+          </div>
+          <div class="job-footer">
+            <span class="job-stat" style="color: var(--red);">Error: timeout after 30m</span>
+            <div class="job-actions">
+              <button class="job-action-btn">view error</button>
+              <button class="job-action-btn">retry</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Panel - Job Details / New Job Form -->
+    <aside class="right-panel">
+      <div class="panel-header">
+        <span class="panel-title">Job Details</span>
+        <span class="panel-close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="panel-content">
+        <div class="panel-section">
+          <div class="section-title">Status</div>
+          <div class="detail-row">
+            <span class="detail-key">Job ID</span>
+            <span class="detail-value">sec_audit_01</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Status</span>
+            <span class="detail-value green">running</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Reasoning</span>
+            <span class="detail-value cyan">high</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Duration</span>
+            <span class="detail-value">12m 34s</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Project</span>
+            <span class="detail-value">claude_control_panel</span>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">Prompt</div>
+          <div class="prompt-display">
+Analyze the authentication and authorization flow for security vulnerabilities. Check OAuth implementation, session management, and token storage.
+
+Focus on:
+- OWASP Top 10 vulnerabilities
+- Token handling and storage
+- Session fixation/hijacking risks
+- Input validation on auth endpoints
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">Output (streaming)</div>
+          <div class="result-display">
+<span class="highlight">Security Audit Report</span>
+
+<span class="success">Checking OAuth implementation...</span>
+- OAuth callback URL validation: OK
+- State parameter present: OK
+- Token exchange over HTTPS: OK
+
+<span class="success">Analyzing session management...</span>
+- Session IDs regenerated on login: OK
+- HttpOnly cookies: OK
+- Secure flag on cookies: OK
+
+<span class="error">Potential issue found:</span>
+File: routes/api/admin.ts:45
+Issue: Missing rate limiting on password reset
+
+Recommendation: Add rate limiting middleware
+to prevent brute force attacks.
+
+<span class="highlight">Continuing analysis...</span>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">Files Changed</div>
+          <div class="changes-list">
+            <div class="change-item">
+              <span class="change-type created">new</span>
+              <span class="change-path">src/middleware/rateLimit.ts</span>
+              <span class="change-lines"><span class="added">+45</span></span>
+            </div>
+            <div class="change-item">
+              <span class="change-type modified">mod</span>
+              <span class="change-path">routes/api/admin.ts</span>
+              <span class="change-lines"><span class="added">+12</span> <span class="removed">-3</span></span>
+            </div>
+            <div class="change-item">
+              <span class="change-type modified">mod</span>
+              <span class="change-path">routes/api/auth.ts</span>
+              <span class="change-lines"><span class="added">+8</span> <span class="removed">-2</span></span>
+            </div>
+          </div>
+          <button class="apply-btn">Apply Changes to Workspace</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-bar-left">
+        <span class="status-bar-item">codex-agent <span class="value">v1.2.0</span></span>
+        <span class="status-bar-item">jobs: <span class="value">11</span></span>
+      </div>
+      <div class="status-bar-right">
+        <span class="status-bar-item"><span class="accent">2</span> running</span>
+        <span class="status-bar-item"><span class="value">1</span> queued</span>
+        <span class="status-bar-item"><span class="value">8</span> completed</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

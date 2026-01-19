@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>V2-02 Task Dock - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #08090a;
+      --void-surface: #0d0e10;
+      --void-elevated: #131416;
+      --void-border: #1a1c1f;
+      --void-border-subtle: #151719;
+      --accent: #f59e0b;
+      --accent-glow: rgba(245, 158, 11, 0.08);
+      --accent-dim: rgba(245, 158, 11, 0.2);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --info: #3b82f6;
+      --text: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #52525b;
+      --text-ghost: #27272a;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Main Layout - Task dock on left is wider */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr 240px;
+      grid-template-rows: 1fr 48px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* =========================================================================
+       LEFT SIDEBAR - Expanded Task Dock
+       ========================================================================= */
+    .task-dock {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .dock-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--void-border-subtle);
+    }
+
+    .dock-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .dock-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .dock-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .dock-btn {
+      width: 28px;
+      height: 28px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .dock-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .dock-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .stat-card {
+      flex: 1;
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-value.accent {
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    /* Task filters */
+    .task-filters {
+      display: flex;
+      gap: 4px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--void-border-subtle);
+    }
+
+    .filter-btn {
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      background: var(--void-elevated);
+      color: var(--text-secondary);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    /* Task list */
+    .task-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .task-item {
+      padding: 14px;
+      background: var(--void-elevated);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .task-item:hover {
+      border-color: var(--void-border);
+      transform: translateY(-1px);
+    }
+
+    .task-item.active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .task-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .task-priority {
+      width: 4px;
+      height: 32px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .task-priority.high { background: var(--error); }
+    .task-priority.medium { background: var(--warning); }
+    .task-priority.low { background: var(--success); }
+
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .task-tag {
+      padding: 2px 8px;
+      background: var(--void-surface);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+    }
+
+    .task-tag.feature { color: var(--info); }
+    .task-tag.bug { color: var(--error); }
+    .task-tag.enhancement { color: var(--success); }
+
+    .task-agent {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .agent-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Quick add */
+    .quick-add {
+      padding: 12px 20px;
+      border-top: 1px solid var(--void-border-subtle);
+    }
+
+    .quick-add-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .quick-add-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .quick-add-input:focus {
+      border-color: var(--accent);
+    }
+
+    /* =========================================================================
+       MAIN TERMINAL AREA
+       ========================================================================= */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 24px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      gap: 16px;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      gap: 2px;
+    }
+
+    .terminal-tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .terminal-tab:hover {
+      background: var(--void-elevated);
+      color: var(--text-secondary);
+    }
+
+    .terminal-tab.active {
+      background: var(--void-deep);
+      color: var(--accent);
+    }
+
+    .terminal-spacer { flex: 1; }
+
+    .session-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .session-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--void-elevated);
+      border-radius: 6px;
+    }
+
+    .session-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Message styling */
+    .message {
+      margin-bottom: 28px;
+    }
+
+    .user-message {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .role-indicator {
+      width: 3px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .role-indicator.user { background: var(--accent); }
+    .role-indicator.agent { background: var(--text-muted); }
+
+    .message-body {
+      flex: 1;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .message-role {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .message-role.user { color: var(--accent); }
+    .message-role.agent { color: var(--text-muted); }
+
+    .message-time {
+      font-size: 10px;
+      color: var(--text-ghost);
+    }
+
+    .message-text {
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* Tool execution block */
+    .tool-block {
+      margin: 16px 0;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .tool-icon {
+      width: 24px;
+      height: 24px;
+      background: var(--accent-glow);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .tool-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .tool-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .tool-status {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tool-status.success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
+    .tool-status.running {
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .tool-body {
+      padding: 16px;
+    }
+
+    .tool-code {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .tool-code .cmd { color: var(--info); }
+    .tool-code .arg { color: var(--text); }
+    .tool-code .flag { color: var(--warning); }
+
+    /* Output section */
+    .tool-output {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--void-border);
+    }
+
+    .output-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .output-item {
+      padding: 8px 12px;
+      background: var(--void-elevated);
+      border-radius: 6px;
+    }
+
+    .output-key {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .output-value {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .output-value.highlight {
+      color: var(--accent);
+    }
+
+    /* Response text */
+    .agent-text {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin: 16px 0;
+    }
+
+    /* Pending approval */
+    .approval-block {
+      margin: 16px 0;
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .approval-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--accent-glow);
+    }
+
+    .approval-icon {
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--void-deep);
+    }
+
+    .approval-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .approval-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .approval-body {
+      padding: 16px;
+      background: var(--void-surface);
+    }
+
+    .approval-desc {
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .approval-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .approval-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .approval-btn.approve {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: var(--void-deep);
+    }
+
+    .approval-btn.approve:hover {
+      background: #d97706;
+      border-color: #d97706;
+    }
+
+    .approval-btn.reject {
+      background: transparent;
+      border: 1px solid var(--void-border);
+      color: var(--text-secondary);
+    }
+
+    .approval-btn.reject:hover {
+      border-color: var(--error);
+      color: var(--error);
+    }
+
+    /* Input area */
+    .input-area {
+      padding: 16px 24px;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+    }
+
+    .input-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 10px;
+      transition: border-color 0.15s;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--accent);
+    }
+
+    .input-prefix {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .input-field::placeholder {
+      color: var(--text-muted);
+    }
+
+    .input-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-action {
+      width: 32px;
+      height: 32px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .input-action:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .input-action svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* =========================================================================
+       RIGHT SIDEBAR - Context Panel
+       ========================================================================= */
+    .context-panel {
+      background: var(--void-surface);
+      border-left: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .context-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .context-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .context-sections {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .context-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--void-border-subtle);
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* Agent status */
+    .agent-card {
+      padding: 12px;
+      background: var(--void-elevated);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .agent-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .agent-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .agent-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .agent-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .agent-status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .agent-status.active .dot { background: var(--success); }
+    .agent-status.active { color: var(--success); }
+    .agent-status.idle .dot { background: var(--text-muted); }
+    .agent-status.idle { color: var(--text-muted); }
+
+    /* Git status */
+    .git-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .git-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+    }
+
+    .git-key {
+      color: var(--text-muted);
+    }
+
+    .git-value {
+      color: var(--text);
+    }
+
+    .git-value.branch {
+      color: var(--info);
+    }
+
+    .git-value.staged {
+      color: var(--success);
+    }
+
+    .git-value.modified {
+      color: var(--warning);
+    }
+
+    /* Files */
+    .file-list {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .file-item:hover {
+      color: var(--text);
+    }
+
+    .file-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+    }
+
+    .file-item.folder .file-icon {
+      color: var(--accent);
+    }
+
+    /* =========================================================================
+       BOTTOM BAR
+       ========================================================================= */
+    .bottom-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+
+    .bottom-left,
+    .bottom-center,
+    .bottom-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .bottom-left { flex: 1; }
+    .bottom-center { flex: 0; }
+    .bottom-right { flex: 1; justify-content: flex-end; }
+
+    .bar-item {
+      color: var(--text-muted);
+    }
+
+    .bar-item .value {
+      color: var(--text);
+    }
+
+    .bar-item .accent {
+      color: var(--accent);
+    }
+
+    .bar-item .success {
+      color: var(--success);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Back link */
+    .back-link {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 6px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      z-index: 1000;
+      transition: all 0.15s;
+    }
+
+    .back-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">catalogue</a>
+
+  <div class="app">
+    <!-- Left: Task Dock -->
+    <aside class="task-dock">
+      <div class="dock-header">
+        <div class="dock-title-row">
+          <span class="dock-title">Task Dock</span>
+          <div class="dock-actions">
+            <button class="dock-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+            <button class="dock-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M3 12h18M3 18h18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-value accent">3</div>
+            <div class="stat-label">Active</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">8</div>
+            <div class="stat-label">Queued</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">12</div>
+            <div class="stat-label">Done</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="task-filters">
+        <button class="filter-btn active">all</button>
+        <button class="filter-btn">active</button>
+        <button class="filter-btn">queued</button>
+        <button class="filter-btn">done</button>
+      </div>
+
+      <div class="task-list">
+        <div class="task-item active">
+          <div class="task-header">
+            <div class="task-priority high"></div>
+            <div class="task-content">
+              <div class="task-title">Add GitHub OAuth integration</div>
+              <div class="task-meta">
+                <span class="task-tag feature">feature</span>
+                <span class="task-agent">
+                  <span class="agent-dot"></span>
+                  ghost
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-item">
+          <div class="task-header">
+            <div class="task-priority medium"></div>
+            <div class="task-content">
+              <div class="task-title">Fix mobile viewport height on iOS Safari</div>
+              <div class="task-meta">
+                <span class="task-tag bug">bug</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-item">
+          <div class="task-header">
+            <div class="task-priority low"></div>
+            <div class="task-content">
+              <div class="task-title">Refactor terminal component for better perf</div>
+              <div class="task-meta">
+                <span class="task-tag enhancement">enhancement</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-item">
+          <div class="task-header">
+            <div class="task-priority medium"></div>
+            <div class="task-content">
+              <div class="task-title">Add keyboard shortcuts documentation</div>
+              <div class="task-meta">
+                <span class="task-tag">docs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-item">
+          <div class="task-header">
+            <div class="task-priority high"></div>
+            <div class="task-content">
+              <div class="task-title">Implement session persistence with Redis</div>
+              <div class="task-meta">
+                <span class="task-tag feature">feature</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-add">
+        <input type="text" class="quick-add-input" placeholder="+ Add task...">
+      </div>
+    </aside>
+
+    <!-- Main Terminal -->
+    <main class="main">
+      <div class="terminal-header">
+        <div class="terminal-tabs">
+          <button class="terminal-tab active">ghost.session</button>
+          <button class="terminal-tab">builder.session</button>
+          <button class="terminal-tab">+</button>
+        </div>
+        <div class="terminal-spacer"></div>
+        <div class="session-info">
+          <div class="session-badge">
+            <span class="dot"></span>
+            <span>connected</span>
+          </div>
+          <span>45.2k tokens</span>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="message">
+          <div class="user-message">
+            <div class="role-indicator user"></div>
+            <div class="message-body">
+              <div class="message-header">
+                <span class="message-role user">you</span>
+                <span class="message-time">2:34 PM</span>
+              </div>
+              <div class="message-text">
+                Start working on the GitHub OAuth task. Set up the OAuth flow first.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="user-message">
+            <div class="role-indicator agent"></div>
+            <div class="message-body">
+              <div class="message-header">
+                <span class="message-role agent">ghost</span>
+                <span class="message-time">2:34 PM</span>
+              </div>
+
+              <div class="tool-block">
+                <div class="tool-header">
+                  <div class="tool-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    </svg>
+                  </div>
+                  <span class="tool-name">Read src/server.ts</span>
+                  <span class="tool-status success">done</span>
+                </div>
+                <div class="tool-body">
+                  <div class="tool-code">
+                    <span class="cmd">read</span> <span class="arg">src/server.ts</span> <span class="flag">--lines 1-50</span>
+                  </div>
+                  <div class="tool-output">
+                    <div class="output-label">Result</div>
+                    <div class="output-grid">
+                      <div class="output-item">
+                        <div class="output-key">lines</div>
+                        <div class="output-value">287</div>
+                      </div>
+                      <div class="output-item">
+                        <div class="output-key">auth</div>
+                        <div class="output-value highlight">basic only</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p class="agent-text">
+                I've analyzed the server configuration. Currently using basic auth middleware.
+                I'll add GitHub OAuth using the official @octokit/oauth-app package. This will require:
+              </p>
+
+              <div class="approval-block">
+                <div class="approval-header">
+                  <div class="approval-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                  </div>
+                  <span class="approval-title">Approval Required</span>
+                </div>
+                <div class="approval-body">
+                  <p class="approval-desc">
+                    Create new file <code>src/auth/github.ts</code> with OAuth callback handler and token storage.
+                    This will add 3 new dependencies to package.json.
+                  </p>
+                  <div class="approval-actions">
+                    <button class="approval-btn approve">Approve</button>
+                    <button class="approval-btn reject">Reject</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-container">
+          <span class="input-prefix">$</span>
+          <input type="text" class="input-field" placeholder="Type a command or message...">
+          <div class="input-actions">
+            <button class="input-action">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </button>
+            <button class="input-action">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right: Context Panel -->
+    <aside class="context-panel">
+      <div class="context-header">
+        <span class="context-title">Context</span>
+      </div>
+
+      <div class="context-sections">
+        <div class="context-section">
+          <div class="section-title">Active Agents</div>
+          <div class="agent-card">
+            <div class="agent-row">
+              <span class="agent-name">ghost</span>
+              <span class="agent-status active">
+                <span class="dot"></span>
+                working
+              </span>
+            </div>
+          </div>
+          <div class="agent-card">
+            <div class="agent-row">
+              <span class="agent-name">builder</span>
+              <span class="agent-status idle">
+                <span class="dot"></span>
+                idle
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="context-section">
+          <div class="section-title">Git</div>
+          <div class="git-status">
+            <div class="git-row">
+              <span class="git-key">branch</span>
+              <span class="git-value branch">main</span>
+            </div>
+            <div class="git-row">
+              <span class="git-key">staged</span>
+              <span class="git-value staged">3</span>
+            </div>
+            <div class="git-row">
+              <span class="git-key">modified</span>
+              <span class="git-value modified">2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="context-section">
+          <div class="section-title">Workspace</div>
+          <div class="file-list">
+            <div class="file-item folder">
+              <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              <span>src/</span>
+            </div>
+            <div class="file-item">
+              <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              </svg>
+              <span>server.ts</span>
+            </div>
+            <div class="file-item">
+              <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              </svg>
+              <span>config.ts</span>
+            </div>
+            <div class="file-item folder">
+              <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              <span>web/</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Bottom Bar -->
+    <footer class="bottom-bar">
+      <div class="bottom-left">
+        <span class="bar-item">ccp <span class="value">v0.1.0</span></span>
+        <span class="bar-item">project: <span class="value">claude_control_panel</span></span>
+      </div>
+      <div class="bottom-center">
+        <span class="bar-item"><span class="success">3 agents ready</span></span>
+      </div>
+      <div class="bottom-right">
+        <span class="bar-item">session: <span class="value">1h 42m</span></span>
+        <span class="bar-item">tokens: <span class="accent">45.2k</span></span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

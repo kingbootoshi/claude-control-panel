@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCP - Session History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 200px 350px 1fr;
+      grid-template-rows: 40px 1fr 28px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: var(--void-deep);
+      color: var(--text);
+    }
+
+    .top-bar-spacer { flex: 1; }
+
+    .top-bar-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      width: 240px;
+    }
+
+    .top-bar-search svg {
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+    }
+
+    .top-bar-search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .top-bar-search input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      font-size: 13px;
+    }
+
+    .nav-item:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--void-elevated);
+      color: var(--text);
+      border-left-color: var(--accent);
+    }
+
+    .nav-item svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: var(--void-elevated);
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--void-border);
+      margin: 8px 16px;
+    }
+
+    /* Sessions List */
+    .sessions-panel {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sessions-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sessions-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .sessions-filter {
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-btn {
+      padding: 4px 8px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      background: var(--void-elevated);
+      color: var(--text-dim);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .sessions-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .session-group {
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .session-date {
+      padding: 8px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--void-elevated);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .session-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--void-border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .session-item:hover {
+      background: var(--void-elevated);
+    }
+
+    .session-item.active {
+      background: var(--accent-dim);
+      border-left: 2px solid var(--accent);
+    }
+
+    .session-item:last-child {
+      border-bottom: none;
+    }
+
+    .session-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .session-project {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .session-project-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .session-time {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .session-preview {
+      font-size: 11px;
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 8px;
+    }
+
+    .session-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .session-agent {
+      color: var(--text-dim);
+    }
+
+    /* Main Preview */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .preview-header {
+      padding: 16px 24px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .preview-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .preview-meta {
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 12px;
+    }
+
+    .preview-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .preview-btn {
+      padding: 8px 14px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preview-btn.primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: var(--void-deep);
+      font-weight: 500;
+    }
+
+    .preview-btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    .preview-btn.secondary {
+      background: transparent;
+      border: 1px solid var(--void-border);
+      color: var(--text-dim);
+    }
+
+    .preview-btn.secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .preview-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .preview-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    /* Chat preview */
+    .chat-message {
+      margin-bottom: 20px;
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .chat-role {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chat-role.user { color: var(--accent); }
+    .chat-role.agent { color: var(--text-dim); }
+
+    .chat-time {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .chat-content {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    .chat-tool {
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .chat-tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: var(--text-dim);
+    }
+
+    .chat-tool-badge {
+      padding: 2px 6px;
+      background: var(--blue);
+      color: var(--void-deep);
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .chat-tool-path {
+      color: var(--text);
+    }
+
+    /* Session changes */
+    .changes-summary {
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+    }
+
+    .changes-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .change-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 11px;
+    }
+
+    .change-icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    .change-icon.add { color: var(--green); }
+    .change-icon.edit { color: var(--accent); }
+    .change-icon.delete { color: var(--red); }
+
+    .change-file {
+      color: var(--text);
+    }
+
+    .change-stats {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+    }
+
+    .status-bar-left,
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-bar-item {
+      color: var(--text-dim);
+    }
+
+    .status-bar-item .value {
+      color: var(--text);
+    }
+
+    .status-bar-item .accent {
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    /* Navigation */
+    .flow-nav {
+      position: fixed;
+      bottom: 36px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .flow-nav a {
+      padding: 6px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .flow-nav a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .flow-nav a.current {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+  </style>
+</head>
+<body>
+  <div class="flow-nav">
+    <a href="00-home-project-select.html">home</a>
+    <a href="01-project-workspace.html">workspace</a>
+    <a href="02-kanban-tasks.html">kanban</a>
+    <a href="03-agent-running.html">agent</a>
+    <a href="04-git-panel.html">git</a>
+    <a href="05-history.html" class="current">history</a>
+    <a href="06-research-mode.html">research</a>
+  </div>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="window-controls">
+        <span class="window-dot red"></span>
+        <span class="window-dot yellow"></span>
+        <span class="window-dot green"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab" onclick="window.location='01-project-workspace.html'">ghost.session</button>
+        <button class="tab active">history.view</button>
+      </div>
+      <div class="top-bar-spacer"></div>
+      <div class="top-bar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" placeholder="Search sessions...">
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">Control Panel</div>
+      <nav class="sidebar-nav">
+        <div class="nav-item" onclick="window.location='00-home-project-select.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          </svg>
+          <span>home</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+          <span>projects</span>
+          <span class="nav-badge">3</span>
+        </div>
+        <div class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <span>history</span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+          <span>settings</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Sessions List -->
+    <aside class="sessions-panel">
+      <div class="sessions-header">
+        <span class="sessions-title">Sessions</span>
+        <div class="sessions-filter">
+          <button class="filter-btn active">all</button>
+          <button class="filter-btn">projects</button>
+          <button class="filter-btn">research</button>
+        </div>
+      </div>
+      <div class="sessions-list">
+        <div class="session-group">
+          <div class="session-date">Today</div>
+          <div class="session-item active">
+            <div class="session-top">
+              <span class="session-project">
+                <span class="session-project-dot"></span>
+                claude_control_panel
+              </span>
+              <span class="session-time">2:34 PM</span>
+            </div>
+            <div class="session-preview">add github oauth integration...</div>
+            <div class="session-meta">
+              <span class="session-agent">ghost</span>
+              <span>45.2k tokens</span>
+              <span>3 files changed</span>
+            </div>
+          </div>
+          <div class="session-item">
+            <div class="session-top">
+              <span class="session-project">
+                <span class="session-project-dot" style="background: var(--blue);"></span>
+                research
+              </span>
+              <span class="session-time">11:20 AM</span>
+            </div>
+            <div class="session-preview">compare tRPC vs GraphQL for API...</div>
+            <div class="session-meta">
+              <span class="session-agent">claude-code</span>
+              <span>28.4k tokens</span>
+            </div>
+          </div>
+        </div>
+        <div class="session-group">
+          <div class="session-date">Yesterday</div>
+          <div class="session-item">
+            <div class="session-top">
+              <span class="session-project">
+                <span class="session-project-dot"></span>
+                claude_control_panel
+              </span>
+              <span class="session-time">4:15 PM</span>
+            </div>
+            <div class="session-preview">fix mobile viewport height on iOS Safari...</div>
+            <div class="session-meta">
+              <span class="session-agent">ghost</span>
+              <span>18.7k tokens</span>
+              <span>2 files changed</span>
+            </div>
+          </div>
+          <div class="session-item">
+            <div class="session-top">
+              <span class="session-project">
+                <span class="session-project-dot" style="background: var(--green);"></span>
+                video-toolkit
+              </span>
+              <span class="session-time">2:30 PM</span>
+            </div>
+            <div class="session-preview">fix audio sync issue in video stitch...</div>
+            <div class="session-meta">
+              <span class="session-agent">claude-code</span>
+              <span>12.8k tokens</span>
+              <span>1 file changed</span>
+            </div>
+          </div>
+        </div>
+        <div class="session-group">
+          <div class="session-date">This Week</div>
+          <div class="session-item">
+            <div class="session-top">
+              <span class="session-project">
+                <span class="session-project-dot"></span>
+                claude_control_panel
+              </span>
+              <span class="session-time">Mon</span>
+            </div>
+            <div class="session-preview">add extended thinking with streaming...</div>
+            <div class="session-meta">
+              <span class="session-agent">ghost</span>
+              <span>67.3k tokens</span>
+              <span>8 files changed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Preview -->
+    <main class="main">
+      <div class="preview-header">
+        <div class="preview-info">
+          <span class="preview-title">GitHub OAuth Integration</span>
+          <div class="preview-meta">
+            <span>ghost</span>
+            <span>45.2k tokens</span>
+            <span>Today at 2:34 PM</span>
+          </div>
+        </div>
+        <div class="preview-actions">
+          <button class="preview-btn secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+            </svg>
+            export
+          </button>
+          <button class="preview-btn primary" onclick="window.location='01-project-workspace.html'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 4v6h6M23 20v-6h-6"/>
+              <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
+            </svg>
+            /resume
+          </button>
+        </div>
+      </div>
+
+      <div class="preview-content">
+        <div class="chat-message">
+          <div class="chat-header">
+            <span class="chat-role user">you</span>
+            <span class="chat-time">2:34 PM</span>
+          </div>
+          <div class="chat-content">
+            Start working on the GitHub OAuth task. Set up the OAuth flow first.
+          </div>
+        </div>
+
+        <div class="chat-message">
+          <div class="chat-header">
+            <span class="chat-role agent">ghost</span>
+            <span class="chat-time">2:34 PM</span>
+          </div>
+          <div class="chat-content">
+            I'll implement GitHub OAuth integration for the control panel. Let me first examine the current auth setup.
+          </div>
+          <div class="chat-tool">
+            <div class="chat-tool-header">
+              <span class="chat-tool-badge">read</span>
+              <span class="chat-tool-path">src/server.ts</span>
+            </div>
+          </div>
+          <div class="chat-tool">
+            <div class="chat-tool-header">
+              <span class="chat-tool-badge">read</span>
+              <span class="chat-tool-path">src/config.ts</span>
+            </div>
+          </div>
+          <div class="chat-content">
+            Found existing config placeholders for GitHub OAuth. The server uses basic auth middleware. I'll add @octokit/oauth-app to handle the OAuth flow properly.
+          </div>
+        </div>
+
+        <div class="changes-summary">
+          <div class="changes-title">Changes Made in This Session</div>
+          <div class="change-row">
+            <svg class="change-icon add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span class="change-file">src/auth/github.ts</span>
+            <span class="change-stats">+127 lines</span>
+          </div>
+          <div class="change-row">
+            <svg class="change-icon edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="change-file">src/server.ts</span>
+            <span class="change-stats">+12 -3 lines</span>
+          </div>
+          <div class="change-row">
+            <svg class="change-icon edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="change-file">package.json</span>
+            <span class="change-stats">+2 deps</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-bar-left">
+        <span class="status-bar-item">ccp <span class="value">v0.1.0</span></span>
+        <span class="status-bar-item">viewing: <span class="accent">session history</span></span>
+      </div>
+      <div class="status-bar-right">
+        <span class="status-bar-item"><span class="value">24</span> total sessions</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editorial - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #fefefe;
+      --bg-warm: #faf8f5;
+      --bg-card: #ffffff;
+      --border: #e8e4df;
+      --border-strong: #d1ccc4;
+      --accent: #1a1a1a;
+      --accent-warm: #8b4513;
+      --success: #2d5a27;
+      --warning: #b8860b;
+      --danger: #8b0000;
+      --text: #1a1a1a;
+      --text-secondary: #4a4a4a;
+      --text-muted: #8a8a8a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Source Sans 3', Georgia, serif;
+      background: var(--bg-warm);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .app {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 48px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-left: 12px;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .header-date {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 0;
+    }
+
+    .nav-item {
+      padding: 8px 20px;
+      background: transparent;
+      border: none;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .nav-item:hover {
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      color: var(--text);
+      border-bottom: 2px solid var(--accent);
+      margin-bottom: -14px;
+      padding-bottom: 20px;
+    }
+
+    .nav-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      padding: 48px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Page Title */
+    .page-header {
+      margin-bottom: 48px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 48px;
+      font-weight: 400;
+      letter-spacing: -1px;
+      line-height: 1.1;
+    }
+
+    .page-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-weight: 300;
+    }
+
+    .page-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #333;
+      border-color: #333;
+    }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 48px;
+    }
+
+    /* Main Column */
+    .main-column {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Chat Section */
+    .chat-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .section-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .section-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .agent-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg-warm);
+      border: 1px solid var(--border);
+    }
+
+    .agent-indicator {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    .agent-name {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .chat-body {
+      padding: 32px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin-bottom: 32px;
+    }
+
+    .message-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .author-avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-warm);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .author-avatar.user {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .author-info {
+      flex: 1;
+    }
+
+    .author-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .author-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .message-content {
+      padding-left: 48px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .message-content p {
+      margin-bottom: 12px;
+      text-wrap: pretty;
+    }
+
+    .tool-card {
+      margin: 16px 0;
+      padding: 16px 20px;
+      background: var(--bg-warm);
+      border-left: 3px solid var(--warning);
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .tool-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--warning);
+    }
+
+    .tool-status {
+      font-size: 11px;
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tool-body {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .code-block {
+      margin: 16px 0;
+      background: #1a1a1a;
+      color: #e5e5e5;
+      overflow: hidden;
+    }
+
+    .code-header {
+      padding: 10px 16px;
+      background: #2a2a2a;
+      border-bottom: 1px solid #3a3a3a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #8a8a8a;
+    }
+
+    .code-body {
+      padding: 16px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .chat-input-area {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-warm);
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+    }
+
+    .chat-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      padding: 14px 28px;
+      background: var(--accent);
+      border: none;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: white;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .send-btn:hover {
+      background: #333;
+    }
+
+    /* Kanban Section */
+    .kanban-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .kanban-body {
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .kanban-column {
+      background: var(--bg-warm);
+      padding: 16px;
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .column-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .column-count {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .task-card {
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .task-card:hover {
+      border-color: var(--accent);
+      box-shadow: var(--shadow);
+    }
+
+    .task-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      line-height: 1.4;
+      text-wrap: balance;
+    }
+
+    .task-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .task-tag {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .task-tag.bug {
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid #fecaca;
+    }
+
+    .task-tag.feature {
+      background: #f0fdf4;
+      color: var(--success);
+      border: 1px solid #bbf7d0;
+    }
+
+    .task-run {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border: none;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .task-card:hover .task-run {
+      opacity: 1;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Project Card */
+    .project-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .project-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .project-label {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .project-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .project-path {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .project-stats {
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-warm);
+    }
+
+    .stat-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px;
+      font-weight: 400;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .project-actions {
+      padding: 20px 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .project-btn {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .project-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Git Card */
+    .git-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .git-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .git-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .branch-badge {
+      padding: 6px 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .git-body {
+      padding: 20px 24px;
+    }
+
+    .changes-section {
+      margin-bottom: 20px;
+    }
+
+    .changes-title {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .change-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--bg-warm);
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .change-item:hover {
+      background: var(--border);
+    }
+
+    .change-status {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .change-status.m { color: var(--warning); }
+    .change-status.a { color: var(--success); }
+
+    .change-file {
+      flex: 1;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+    }
+
+    .change-stats {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+    }
+
+    .change-stats .add { color: var(--success); }
+    .change-stats .del { color: var(--danger); }
+
+    .commit-form {
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .commit-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-warm);
+      border: 1px solid var(--border);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .commit-input:focus {
+      border-color: var(--accent);
+    }
+
+    .commit-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      border: none;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .commit-btn:hover {
+      background: #333;
+    }
+
+    /* History Card */
+    .history-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .history-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .history-body {
+      padding: 16px 24px;
+    }
+
+    .history-item {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .history-item:hover {
+      opacity: 0.7;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-item-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .history-item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .history-agent {
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* Footer */
+    .footer {
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      padding: 16px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .footer-left, .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    /* Back Link */
+    .back-link {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      z-index: 1000;
+      transition: all 0.15s;
+    }
+
+    .back-link:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-warm);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">Back to Catalogue</a>
+
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-top">
+        <div class="logo">
+          Claude Control Panel
+          <span class="logo-sub">Agent Orchestration</span>
+        </div>
+        <div class="header-meta">
+          <span class="header-date">January 11, 2026</span>
+          <div class="header-status">
+            <span class="status-dot"></span>
+            <span>All Systems Operational</span>
+          </div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-item active">Dashboard</button>
+        <button class="nav-item">Projects</button>
+        <button class="nav-item">Agents</button>
+        <div class="nav-divider"></div>
+        <button class="nav-item">History</button>
+        <button class="nav-item">Files</button>
+        <button class="nav-item">Settings</button>
+      </nav>
+    </header>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Today's Workspace</h1>
+          <p class="page-subtitle">claude_control_panel - 12 active tasks, 2 agents online</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn">New Task</button>
+          <button class="btn btn-primary">Start Agent</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="main-column">
+          <!-- Chat Section -->
+          <section class="chat-section">
+            <div class="section-header">
+              <h2 class="section-title">Active Conversation</h2>
+              <div class="section-meta">
+                <div class="agent-badge">
+                  <span class="agent-indicator"></span>
+                  <span class="agent-name">Ghost</span>
+                </div>
+                <span>45.2k tokens</span>
+              </div>
+            </div>
+            <div class="chat-body">
+              <div class="message">
+                <div class="message-author">
+                  <div class="author-avatar user">S</div>
+                  <div class="author-info">
+                    <div class="author-name">You</div>
+                    <div class="author-time">14:32:15</div>
+                  </div>
+                </div>
+                <div class="message-content">
+                  <p>Create a design catalogue for the control panel with an editorial, magazine-style aesthetic. Clean typography, generous whitespace, and a refined color palette.</p>
+                </div>
+              </div>
+
+              <div class="message">
+                <div class="message-author">
+                  <div class="author-avatar">G</div>
+                  <div class="author-info">
+                    <div class="author-name">Ghost</div>
+                    <div class="author-time">14:32:18</div>
+                  </div>
+                </div>
+                <div class="message-content">
+                  <p>I'll create an editorial design inspired by high-end magazines and newspapers. The aesthetic will feature Playfair Display for headlines, generous typography, warm neutral tones, and a newspaper-style grid layout.</p>
+
+                  <div class="tool-card">
+                    <div class="tool-header">
+                      <span class="tool-name">Task: Explore codebase</span>
+                      <span class="tool-status">Complete</span>
+                    </div>
+                    <div class="tool-body">
+                      Analyzed existing architecture: React + tRPC, Tailwind CSS...
+                    </div>
+                  </div>
+
+                  <p>Key design principles for this proposal:</p>
+
+                  <div class="code-block">
+                    <div class="code-header">
+                      <span>design-principles.md</span>
+                    </div>
+                    <div class="code-body">
+1. Typography-first hierarchy
+2. Warm neutral color palette
+3. Generous whitespace and padding
+4. Card-based content organization
+5. Subtle borders, minimal shadows
+6. Serif headlines, sans-serif body
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <div class="input-wrapper">
+                <input type="text" class="chat-input" placeholder="Continue the conversation...">
+                <button class="send-btn">Send</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Kanban Section -->
+          <section class="kanban-section">
+            <div class="section-header">
+              <h2 class="section-title">Task Board</h2>
+              <div class="section-meta">
+                <span>12 items total</span>
+              </div>
+            </div>
+            <div class="kanban-body">
+              <div class="kanban-column">
+                <div class="column-header">
+                  <span class="column-title">To Do</span>
+                  <span class="column-count">4 items</span>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Add GitHub OAuth integration for repository access</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Feature</span>
+                    <button class="task-run">&#9654;</button>
+                  </div>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Fix mobile keyboard overlay issue on iOS Safari</div>
+                  <div class="task-footer">
+                    <span class="task-tag bug">Bug</span>
+                    <button class="task-run">&#9654;</button>
+                  </div>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Implement branch switching UI with dropdown</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Feature</span>
+                    <button class="task-run">&#9654;</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kanban-column">
+                <div class="column-header">
+                  <span class="column-title">In Progress</span>
+                  <span class="column-count">2 items</span>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Design catalogue exploration with multiple proposals</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Ghost</span>
+                  </div>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Add diff viewer component for git changes</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Feature</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kanban-column">
+                <div class="column-header">
+                  <span class="column-title">Complete</span>
+                  <span class="column-count">6 items</span>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">tRPC migration from REST API</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Feature</span>
+                  </div>
+                </div>
+                <div class="task-card">
+                  <div class="task-title">Mobile responsive layout implementation</div>
+                  <div class="task-footer">
+                    <span class="task-tag feature">Feature</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <!-- Project Card -->
+          <div class="project-card">
+            <div class="project-header">
+              <div class="project-label">Current Project</div>
+              <div class="project-name">Claude Control Panel</div>
+              <div class="project-path">~/Dev/claude_control_panel</div>
+            </div>
+            <div class="project-stats">
+              <div class="stat-item">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Tasks</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Agents</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Changes</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">45.2k</div>
+                <div class="stat-label">Tokens</div>
+              </div>
+            </div>
+            <div class="project-actions">
+              <button class="project-btn">Switch</button>
+              <button class="project-btn">Settings</button>
+            </div>
+          </div>
+
+          <!-- Git Card -->
+          <div class="git-card">
+            <div class="git-header">
+              <span class="git-title">Source Control</span>
+              <span class="branch-badge">
+                <span>&#9679;</span> main
+              </span>
+            </div>
+            <div class="git-body">
+              <div class="changes-section">
+                <div class="changes-title">Staged Changes (3)</div>
+                <div class="change-item">
+                  <span class="change-status m">M</span>
+                  <span class="change-file">App.tsx</span>
+                  <span class="change-stats"><span class="add">+45</span> <span class="del">-12</span></span>
+                </div>
+                <div class="change-item">
+                  <span class="change-status m">M</span>
+                  <span class="change-file">index.css</span>
+                  <span class="change-stats"><span class="add">+128</span> <span class="del">-3</span></span>
+                </div>
+                <div class="change-item">
+                  <span class="change-status a">A</span>
+                  <span class="change-file">Kanban.tsx</span>
+                  <span class="change-stats"><span class="add">+234</span></span>
+                </div>
+              </div>
+              <div class="commit-form">
+                <input type="text" class="commit-input" placeholder="Commit message...">
+                <button class="commit-btn">Commit Changes</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- History Card -->
+          <div class="history-card">
+            <div class="history-header">
+              <span class="history-title">Recent Sessions</span>
+            </div>
+            <div class="history-body">
+              <div class="history-item">
+                <div class="history-item-title">Frontend design exploration</div>
+                <div class="history-item-meta">
+                  <span class="history-agent">Ghost</span>
+                  <span>Today, 14:32</span>
+                </div>
+              </div>
+              <div class="history-item">
+                <div class="history-item-title">Mobile UX improvements</div>
+                <div class="history-item-meta">
+                  <span class="history-agent">Ghost</span>
+                  <span>Today, 11:15</span>
+                </div>
+              </div>
+              <div class="history-item">
+                <div class="history-item-title">tRPC migration</div>
+                <div class="history-item-meta">
+                  <span class="history-agent">Builder</span>
+                  <span>Yesterday</span>
+                </div>
+              </div>
+              <div class="history-item">
+                <div class="history-item-title">Auth implementation</div>
+                <div class="history-item-meta">
+                  <span class="history-agent">Ghost</span>
+                  <span>2 days ago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-left">
+        <div class="footer-item">
+          <span class="footer-dot"></span>
+          <span>Ghost Online</span>
+        </div>
+        <div class="footer-item">
+          <span class="footer-dot"></span>
+          <span>Builder Online</span>
+        </div>
+      </div>
+      <div class="footer-right">
+        <span>Branch: main</span>
+        <span>5 uncommitted changes</span>
+        <span>Model: Opus 4.5</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

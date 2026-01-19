@@ -3,14 +3,6 @@ import { trpc } from '../../trpc';
 import type { CCPConfig } from '../../types';
 import { ChevronLeftIcon } from '../Icons';
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'agent';
-}
-
 interface SettingsProps {
   config: CCPConfig;
   onClose: () => void;
@@ -18,15 +10,15 @@ interface SettingsProps {
 }
 
 export function Settings({ config, onClose, onRestart }: SettingsProps) {
-  const [name, setName] = useState(config.primaryAgent.name);
+  const [name, setName] = useState(config.assistantName);
   const [claudeMd, setClaudeMd] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Load current CLAUDE.md
+  // Load current CLAUDE.md from workspace
   const claudeMdQuery = trpc.files.read.useQuery(
-    { agentId: config.primaryAgent.id, path: 'CLAUDE.md' },
-    { enabled: !!config.primaryAgent.id }
+    { basePath: '', filePath: 'CLAUDE.md' },  // Empty basePath means workspace root
+    { retry: false }  // Don't retry if file doesn't exist
   );
 
   useEffect(() => {
@@ -39,6 +31,11 @@ export function Settings({ config, onClose, onRestart }: SettingsProps) {
     onSuccess: () => {
       setSaved(true);
       setError(null);
+      // Call onRestart after save
+      setTimeout(() => {
+        onRestart();
+        onClose();
+      }, 500);
     },
     onError: (err) => {
       setError(err.message);
@@ -46,29 +43,16 @@ export function Settings({ config, onClose, onRestart }: SettingsProps) {
     },
   });
 
-  const restartMutation = trpc.session.restart.useMutation({
-    onSuccess: () => {
-      onRestart();
-      onClose();
-    },
-    onError: (err) => {
-      setError(`Restart failed: ${err.message}`);
-    },
-  });
-
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Agent name is required');
+      setError('Assistant name is required');
       return;
     }
 
     await saveMutation.mutateAsync({ name: name.trim(), claudeMd });
-    await restartMutation.mutateAsync();
   };
 
-  const hasChanges = name !== config.primaryAgent.name || claudeMd !== (claudeMdQuery.data?.content ?? '');
-  const newAgentId = slugify(name);
-  const agentIdChanged = newAgentId !== config.primaryAgent.id;
+  const hasChanges = name !== config.assistantName || claudeMd !== (claudeMdQuery.data?.content ?? '');
 
   return (
     <div className="settings-panel">
@@ -85,19 +69,15 @@ export function Settings({ config, onClose, onRestart }: SettingsProps) {
         {saved && !error && <div className="settings-success">Settings saved!</div>}
 
         <section>
-          <h3>Agent</h3>
+          <h3>Assistant</h3>
           <label>
             Name
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder="Claude"
             />
-            {agentIdChanged && (
-              <span className="settings-warning">
-                Workspace will be renamed from {config.primaryAgent.id} to {newAgentId}
-              </span>
-            )}
           </label>
         </section>
 
@@ -110,6 +90,7 @@ export function Settings({ config, onClose, onRestart }: SettingsProps) {
               value={claudeMd}
               onChange={(e) => setClaudeMd(e.target.value)}
               rows={20}
+              placeholder="# Instructions for Claude&#10;&#10;Enter your custom instructions here..."
             />
           )}
         </section>
@@ -117,11 +98,9 @@ export function Settings({ config, onClose, onRestart }: SettingsProps) {
         <button
           className="settings-save"
           onClick={handleSave}
-          disabled={!hasChanges || saveMutation.isPending || restartMutation.isPending}
+          disabled={!hasChanges || saveMutation.isPending}
         >
-          {saveMutation.isPending || restartMutation.isPending
-            ? 'Saving & Restarting...'
-            : 'Save & Restart Session'}
+          {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
     </div>

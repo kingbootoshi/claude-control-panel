@@ -1,5 +1,8 @@
 import { config } from "./config";
-import { TerminalManager } from "./terminal-manager";
+import { GHOST_TERMINAL_ID, TerminalManager } from "./terminal-manager";
+import { TmuxManager } from "./tmux-manager";
+import { CodexManager } from "./codex-manager";
+import { AgentWatcher } from "./agent-watcher";
 import { createHttpServer } from "./server";
 import { logger } from "./utils/logger";
 
@@ -7,7 +10,7 @@ const log = logger.daemon;
 
 async function main() {
   log.info("═══════════════════════════════════════════════════════════");
-  log.info("                  CLAUDE CONTROL PANEL                     ");
+  log.info("                  GHOST CONTROL PANEL                      ");
   log.info("═══════════════════════════════════════════════════════════");
   if (!config.authToken) {
     log.fatal("CCP_AUTH_TOKEN is required");
@@ -18,9 +21,26 @@ async function main() {
   log.info({ workspaceRoot: config.workspaceRoot }, "Workspace root");
   log.info("═══════════════════════════════════════════════════════════");
 
-  // Create terminal manager (handles multiple sessions)
+  // Create terminal manager (handles multiple Claude sessions)
   const terminalManager = new TerminalManager();
   await terminalManager.initialize();
+
+  const ghostTerminal = terminalManager.get(GHOST_TERMINAL_ID);
+  if (ghostTerminal && ghostTerminal.status !== "running" && ghostTerminal.status !== "starting") {
+    log.info({ terminalId: GHOST_TERMINAL_ID }, "Resuming ghost terminal");
+    await terminalManager.resume(GHOST_TERMINAL_ID);
+  }
+
+  // Create tmux manager (multi-pane terminal orchestration)
+  const tmuxManager = new TmuxManager();
+  await tmuxManager.initialize();
+
+  // Create codex manager (GPT Codex agent jobs)
+  const codexManager = new CodexManager();
+  await codexManager.initialize();
+
+  const agentWatcher = new AgentWatcher(terminalManager);
+  agentWatcher.start();
 
   // Log assistant name if configured
   const assistantName = terminalManager.getAssistantName();
@@ -31,7 +51,7 @@ async function main() {
   }
 
   // Create and start HTTP/WebSocket server
-  const { server, wssHandler } = createHttpServer(terminalManager);
+  const { server, wssHandler } = createHttpServer({ terminalManager, tmuxManager, codexManager, agentWatcher });
 
   server.listen(config.port, config.host, () => {
     log.info({ url: `http://${config.host}:${config.port}` }, "HTTP server listening");
@@ -47,9 +67,18 @@ async function main() {
       log.info("HTTP server closed");
     });
 
+    // Clean up managers
+    await tmuxManager.cleanup();
+    await codexManager.cleanup();
+    agentWatcher.stop();
+
     // Kill all terminals
     const terminals = terminalManager.list();
     for (const terminal of terminals) {
+      if (terminal.id === GHOST_TERMINAL_ID) {
+        await terminalManager.close(terminal.id);
+        continue;
+      }
       await terminalManager.kill(terminal.id);
     }
 

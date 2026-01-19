@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brutalist Terminal - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #000000;
+      --bg-alt: #0a0a0a;
+      --border: #333333;
+      --border-thick: #ffffff;
+      --accent: #00ff00;
+      --accent-alt: #ff0000;
+      --warning: #ffff00;
+      --text: #ffffff;
+      --text-dim: #888888;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Space Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    /* CRT effect */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.1),
+        rgba(0, 0, 0, 0.1) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 10000;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 240px 1fr 280px;
+      grid-template-rows: 48px 1fr 32px;
+      height: 100dvh;
+      border: 4px solid var(--border-thick);
+    }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      background: var(--text);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 4px solid var(--border-thick);
+    }
+
+    .logo {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 20px;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-led {
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+    }
+
+    .status-led.warning { background: var(--warning); }
+    .status-led.error { background: var(--accent-alt); }
+
+    .header-time {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg);
+      border-right: 4px solid var(--border-thick);
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      border-bottom: 2px solid var(--border);
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-content {
+      padding: 8px;
+    }
+
+    .project-item {
+      padding: 12px;
+      border: 2px solid var(--border);
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .project-item:hover {
+      border-color: var(--text);
+      background: var(--bg-alt);
+    }
+
+    .project-item.active {
+      border-color: var(--accent);
+      background: rgba(0, 255, 0, 0.1);
+    }
+
+    .project-name {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .project-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .agent-item {
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .agent-item:hover {
+      border-color: var(--text);
+    }
+
+    .agent-item.active {
+      border-color: var(--accent);
+      background: rgba(0, 255, 0, 0.1);
+    }
+
+    .agent-led {
+      width: 10px;
+      height: 10px;
+      background: var(--accent);
+    }
+
+    .agent-led.busy { background: var(--warning); }
+    .agent-led.offline { background: var(--border); }
+
+    .agent-info {
+      flex: 1;
+    }
+
+    .agent-name {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .agent-type {
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .history-item {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 2px;
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .history-item:hover {
+      border-color: var(--text);
+      background: var(--bg-alt);
+    }
+
+    .history-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .history-meta {
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    /* Main Area */
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background: var(--bg);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 4px solid var(--border-thick);
+    }
+
+    .tab {
+      padding: 12px 20px;
+      background: var(--bg);
+      border: none;
+      border-right: 2px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .tab:hover {
+      background: var(--bg-alt);
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .tab-spacer {
+      flex: 1;
+      border-right: none;
+    }
+
+    .tab-info {
+      padding: 12px 20px;
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .info-label {
+      color: var(--text-dim);
+    }
+
+    .info-value {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Terminal */
+    .terminal {
+      overflow-y: auto;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .prompt-line {
+      margin-bottom: 12px;
+    }
+
+    .prompt {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .user-input {
+      color: var(--text);
+    }
+
+    .response {
+      margin-bottom: 20px;
+      padding-left: 0;
+    }
+
+    .response-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .response-agent {
+      padding: 2px 8px;
+      background: var(--text);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    .response-time {
+      color: var(--text-dim);
+    }
+
+    .response-content {
+      color: var(--text);
+    }
+
+    .response-content p {
+      margin-bottom: 8px;
+    }
+
+    .tool-block {
+      margin: 12px 0;
+      border: 2px solid var(--warning);
+      background: rgba(255, 255, 0, 0.05);
+    }
+
+    .tool-header {
+      padding: 8px 12px;
+      background: var(--warning);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tool-body {
+      padding: 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .code-block {
+      margin: 12px 0;
+      border: 2px solid var(--border);
+    }
+
+    .code-header {
+      padding: 8px 12px;
+      background: var(--border);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .code-body {
+      padding: 12px;
+      font-size: 12px;
+      background: var(--bg-alt);
+      overflow-x: auto;
+    }
+
+    .code-body .keyword { color: var(--accent-alt); }
+    .code-body .string { color: var(--warning); }
+    .code-body .comment { color: var(--text-dim); }
+
+    /* Input Area */
+    .input-area {
+      border-top: 4px solid var(--border-thick);
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .input-prompt {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 14px;
+      padding-top: 10px;
+    }
+
+    .terminal-input {
+      flex: 1;
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      caret-color: var(--accent);
+    }
+
+    .terminal-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .submit-btn {
+      padding: 10px 24px;
+      background: var(--text);
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--bg);
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .submit-btn:hover {
+      background: var(--accent);
+    }
+
+    /* Right Panel */
+    .right-panel {
+      background: var(--bg);
+      border-left: 4px solid var(--border-thick);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-section {
+      border-bottom: 2px solid var(--border);
+    }
+
+    .panel-header {
+      padding: 10px 12px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-badge {
+      padding: 2px 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 9px;
+    }
+
+    .panel-content {
+      padding: 8px;
+    }
+
+    /* Git Section */
+    .branch-display {
+      padding: 10px 12px;
+      background: var(--bg-alt);
+      border: 2px solid var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .branch-icon {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .branch-name {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .file-change {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.05s;
+    }
+
+    .file-change:hover {
+      border-color: var(--text);
+      background: var(--bg-alt);
+    }
+
+    .file-status {
+      font-weight: 700;
+      width: 16px;
+    }
+
+    .file-status.m { color: var(--warning); }
+    .file-status.a { color: var(--accent); }
+    .file-status.d { color: var(--accent-alt); }
+
+    .file-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-stats {
+      font-size: 9px;
+    }
+
+    .file-stats .add { color: var(--accent); }
+    .file-stats .del { color: var(--accent-alt); }
+
+    /* Kanban Section */
+    .kanban-mini {
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .kanban-group {
+      margin-bottom: 12px;
+    }
+
+    .kanban-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      margin-bottom: 4px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .group-indicator {
+      width: 8px;
+      height: 8px;
+    }
+
+    .group-indicator.todo { background: var(--text-dim); }
+    .group-indicator.progress { background: var(--warning); }
+    .group-indicator.done { background: var(--accent); }
+
+    .task-mini {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 2px;
+      cursor: pointer;
+      transition: all 0.05s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .task-mini:hover {
+      border-color: var(--text);
+      background: var(--bg-alt);
+    }
+
+    .task-text {
+      font-size: 10px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-tag {
+      padding: 2px 6px;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+
+    .task-tag.bug {
+      border-color: var(--accent-alt);
+      color: var(--accent-alt);
+    }
+
+    .task-tag.feature {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .task-run {
+      width: 20px;
+      height: 20px;
+      background: var(--accent);
+      border: none;
+      color: var(--bg);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 8px;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+
+    .task-mini:hover .task-run {
+      opacity: 1;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--text);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-left, .status-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .status-segment {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .segment-led {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+    }
+
+    .segment-led.warning { background: var(--warning); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* Back Link */
+    .back-link {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      padding: 10px 16px;
+      background: var(--bg);
+      border: 2px solid var(--text);
+      color: var(--text);
+      text-decoration: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      z-index: 1000;
+      transition: all 0.05s;
+    }
+
+    .back-link:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    /* Blinking cursor effect */
+    .cursor {
+      display: inline-block;
+      width: 10px;
+      height: 16px;
+      background: var(--accent);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">Back</a>
+
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">CCP://TERMINAL</div>
+      <div class="header-status">
+        <div class="status-item">
+          <span class="status-led"></span>
+          <span>CLAUDE_CODE</span>
+        </div>
+        <div class="status-item">
+          <span class="status-led"></span>
+          <span>CODEX</span>
+        </div>
+        <div class="status-item">
+          <span class="status-led warning"></span>
+          <span>GITHUB</span>
+        </div>
+      </div>
+      <div class="header-time">2026-01-11 14:32:45</div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span>PROJECTS</span>
+          <span>[3]</span>
+        </div>
+        <div class="sidebar-content">
+          <div class="project-item active">
+            <div class="project-name">CLAUDE_CONTROL_PANEL</div>
+            <div class="project-meta">main | 12 tasks | 5 changes</div>
+          </div>
+          <div class="project-item">
+            <div class="project-name">GHOST_WORKSPACE</div>
+            <div class="project-meta">develop | 3 tasks</div>
+          </div>
+          <div class="project-item">
+            <div class="project-name">VIDEO_STITCH</div>
+            <div class="project-meta">main | 0 tasks</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span>AGENTS</span>
+          <span>[2]</span>
+        </div>
+        <div class="sidebar-content">
+          <div class="agent-item active">
+            <span class="agent-led"></span>
+            <div class="agent-info">
+              <div class="agent-name">GHOST</div>
+              <div class="agent-type">CLAUDE_CODE</div>
+            </div>
+          </div>
+          <div class="agent-item">
+            <span class="agent-led busy"></span>
+            <div class="agent-info">
+              <div class="agent-name">BUILDER</div>
+              <div class="agent-type">CODEX</div>
+            </div>
+          </div>
+          <div class="agent-item">
+            <span class="agent-led offline"></span>
+            <div class="agent-info">
+              <div class="agent-name">REVIEWER</div>
+              <div class="agent-type">CLAUDE_CODE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="sidebar-header">
+          <span>HISTORY</span>
+        </div>
+        <div class="sidebar-content" style="flex: 1; overflow-y: auto;">
+          <div class="history-item">
+            <div class="history-title">FRONTEND_DESIGN_EXPLORATION</div>
+            <div class="history-meta">GHOST | TODAY 14:32</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">MOBILE_UX_IMPROVEMENTS</div>
+            <div class="history-meta">GHOST | TODAY 11:15</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">TRPC_MIGRATION</div>
+            <div class="history-meta">BUILDER | YESTERDAY</div>
+          </div>
+          <div class="history-item">
+            <div class="history-title">AUTH_IMPLEMENTATION</div>
+            <div class="history-meta">GHOST | 2 DAYS AGO</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="tabs">
+        <button class="tab active">TERMINAL</button>
+        <button class="tab">KANBAN</button>
+        <button class="tab">FILES</button>
+        <button class="tab">DIFF</button>
+        <div class="tab-spacer"></div>
+        <div class="tab-info">
+          <div class="info-item">
+            <span class="info-label">TOKENS:</span>
+            <span class="info-value">45.2K</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">MODEL:</span>
+            <span class="info-value">OPUS_4.5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="prompt-line">
+          <span class="prompt">SAINT@CCP:~$</span>
+          <span class="user-input"> create design catalogue for control panel with brutalist terminal aesthetic</span>
+        </div>
+
+        <div class="response">
+          <div class="response-header">
+            <span class="response-agent">GHOST</span>
+            <span class="response-time">14:32:18</span>
+          </div>
+          <div class="response-content">
+            <p>INITIALIZING DESIGN CATALOGUE GENERATION...</p>
+            <p>AESTHETIC: BRUTALIST TERMINAL - RAW, UTILITARIAN, HIGH CONTRAST</p>
+
+            <div class="tool-block">
+              <div class="tool-header">
+                <span>TASK::EXPLORE_CODEBASE</span>
+                <span>COMPLETE</span>
+              </div>
+              <div class="tool-body">
+                SCANNED: REACT + TRPC ARCHITECTURE
+                STYLING: TAILWIND CSS (VOID THEME)
+                COMPONENTS: 24 FILES ANALYZED
+              </div>
+            </div>
+
+            <p>DESIGN PRINCIPLES FOR BRUTALIST PROPOSAL:</p>
+
+            <div class="code-block">
+              <div class="code-header">SPEC://BRUTALIST_DESIGN</div>
+              <div class="code-body">
+<span class="comment">/* BRUTALIST TERMINAL AESTHETIC */</span>
+
+<span class="keyword">COLORS:</span>
+  BACKGROUND: <span class="string">#000000</span> (PURE BLACK)
+  FOREGROUND: <span class="string">#FFFFFF</span> (PURE WHITE)
+  ACCENT:     <span class="string">#00FF00</span> (TERMINAL GREEN)
+  WARNING:    <span class="string">#FFFF00</span> (CAUTION YELLOW)
+  ERROR:      <span class="string">#FF0000</span> (ALERT RED)
+
+<span class="keyword">TYPOGRAPHY:</span>
+  FAMILY: SPACE MONO (MONOSPACE ONLY)
+  WEIGHT: 400 | 700 (NO MEDIUM)
+  CASE: UPPERCASE (ALL TEXT)
+
+<span class="keyword">BORDERS:</span>
+  STYLE: SOLID (NO RADIUS)
+  WIDTH: 2PX | 4PX (THICK ONLY)
+
+<span class="keyword">EFFECTS:</span>
+  CRT SCANLINES: ENABLED
+  CURSOR: CROSSHAIR
+  ANIMATION: MINIMAL (BLINK ONLY)
+              </div>
+            </div>
+
+            <p>CATALOGUE STRUCTURE GENERATED:</p>
+            <p>01-COMMAND-CENTER.HTML [MILITARY OPS]</p>
+            <p>02-IDE-FUSION.HTML [VS CODE STYLE]</p>
+            <p>03-SPATIAL-CANVAS.HTML [NODE BASED]</p>
+            <p>04-EDITORIAL.HTML [MAGAZINE STYLE]</p>
+            <p>05-BRUTALIST.HTML [THIS FILE] <span class="cursor"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <span class="input-prompt">$</span>
+        <input type="text" class="terminal-input" placeholder="ENTER COMMAND...">
+        <button class="submit-btn">EXEC</button>
+      </div>
+    </main>
+
+    <!-- Right Panel -->
+    <aside class="right-panel">
+      <div class="panel-section">
+        <div class="panel-header">
+          <span>GIT</span>
+          <span class="panel-badge">5 FILES</span>
+        </div>
+        <div class="panel-content">
+          <div class="branch-display">
+            <span class="branch-icon">*</span>
+            <span class="branch-name">MAIN</span>
+          </div>
+          <div class="file-change">
+            <span class="file-status m">M</span>
+            <span class="file-name">SRC/APP.TSX</span>
+            <span class="file-stats"><span class="add">+45</span><span class="del">-12</span></span>
+          </div>
+          <div class="file-change">
+            <span class="file-status m">M</span>
+            <span class="file-name">SRC/INDEX.CSS</span>
+            <span class="file-stats"><span class="add">+128</span><span class="del">-3</span></span>
+          </div>
+          <div class="file-change">
+            <span class="file-status a">A</span>
+            <span class="file-name">SRC/KANBAN.TSX</span>
+            <span class="file-stats"><span class="add">+234</span></span>
+          </div>
+          <div class="file-change">
+            <span class="file-status m">M</span>
+            <span class="file-name">SRC/SERVER.TS</span>
+            <span class="file-stats"><span class="add">+8</span><span class="del">-2</span></span>
+          </div>
+          <div class="file-change">
+            <span class="file-status m">M</span>
+            <span class="file-name">VITE.CONFIG.TS</span>
+            <span class="file-stats"><span class="add">+3</span><span class="del">-1</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="panel-header">
+          <span>TASKS</span>
+          <span class="panel-badge">12</span>
+        </div>
+        <div class="panel-content kanban-mini">
+          <div class="kanban-group">
+            <div class="kanban-group-header">
+              <span class="group-indicator todo"></span>
+              <span>QUEUED [4]</span>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">ADD GITHUB OAUTH</span>
+              <span class="task-tag feature">FEAT</span>
+              <button class="task-run">></button>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">FIX MOBILE KEYBOARD</span>
+              <span class="task-tag bug">BUG</span>
+              <button class="task-run">></button>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">BRANCH SWITCHING UI</span>
+              <span class="task-tag feature">FEAT</span>
+              <button class="task-run">></button>
+            </div>
+          </div>
+
+          <div class="kanban-group">
+            <div class="kanban-group-header">
+              <span class="group-indicator progress"></span>
+              <span>ACTIVE [2]</span>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">DESIGN CATALOGUE</span>
+              <span class="task-tag feature">GHOST</span>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">DIFF VIEWER</span>
+              <span class="task-tag feature">FEAT</span>
+            </div>
+          </div>
+
+          <div class="kanban-group">
+            <div class="kanban-group-header">
+              <span class="group-indicator done"></span>
+              <span>COMPLETE [6]</span>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">TRPC MIGRATION</span>
+              <span class="task-tag feature">FEAT</span>
+            </div>
+            <div class="task-mini">
+              <span class="task-text">MOBILE RESPONSIVE</span>
+              <span class="task-tag feature">FEAT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <div class="status-segment">
+          <span class="segment-led"></span>
+          <span>GHOST::ONLINE</span>
+        </div>
+        <div class="status-segment">
+          <span class="segment-led"></span>
+          <span>BUILDER::ONLINE</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <span>PROJECT: CLAUDE_CONTROL_PANEL</span>
+        <span>BRANCH: MAIN</span>
+        <div class="status-segment">
+          <span class="segment-led warning"></span>
+          <span>5 UNCOMMITTED</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

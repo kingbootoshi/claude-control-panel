@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spatial Canvas - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-canvas: #fafafa;
+      --bg-card: #ffffff;
+      --bg-elevated: #ffffff;
+      --bg-input: #f5f5f5;
+      --border: #e5e5e5;
+      --border-strong: #d4d4d4;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+      --accent: #2563eb;
+      --accent-light: #dbeafe;
+      --success: #059669;
+      --success-light: #d1fae5;
+      --warning: #d97706;
+      --warning-light: #fef3c7;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+      --text: #171717;
+      --text-secondary: #525252;
+      --text-muted: #a3a3a3;
+      --grid-dot: #d4d4d4;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      grid-template-rows: 1fr;
+      height: 100dvh;
+    }
+
+    /* Dock */
+    .dock {
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 8px;
+    }
+
+    .dock-logo {
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    .dock-item {
+      width: 48px;
+      height: 48px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .dock-item:hover {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+    }
+
+    .dock-item.active {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    .dock-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      background: var(--danger);
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dock-spacer {
+      flex: 1;
+    }
+
+    .dock-divider {
+      width: 32px;
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0;
+    }
+
+    /* Canvas Area */
+    .canvas-area {
+      position: relative;
+      overflow: hidden;
+      background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Canvas Controls */
+    .canvas-controls {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    .control-group {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .control-btn {
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .control-btn:hover {
+      background: var(--bg-input);
+    }
+
+    .control-btn.active {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    .control-btn + .control-btn {
+      border-left: 1px solid var(--border);
+    }
+
+    /* Search Bar */
+    .search-bar {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+
+    .search-input {
+      width: 400px;
+      padding: 12px 16px 12px 44px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-lg), 0 0 0 3px var(--accent-light);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    /* Project Selector */
+    .project-selector {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
+    }
+
+    .project-btn {
+      padding: 10px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+
+    .project-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .project-indicator {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    .project-chevron {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Floating Cards */
+    .node {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md);
+      cursor: grab;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .node:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .node.selected {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-lg), 0 0 0 3px var(--accent-light);
+    }
+
+    /* Agent Node */
+    .agent-node {
+      width: 320px;
+      top: 120px;
+      left: 100px;
+    }
+
+    .node-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .node-avatar {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .node-info {
+      flex: 1;
+    }
+
+    .node-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .node-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .node-status {
+      padding: 4px 10px;
+      background: var(--success-light);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--success);
+    }
+
+    .node-status.busy {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .node-body {
+      padding: 16px;
+    }
+
+    .node-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .node-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .node-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--bg-input);
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .node-btn:hover {
+      background: var(--border);
+    }
+
+    .node-btn.primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .node-btn.primary:hover {
+      background: #1d4ed8;
+    }
+
+    /* Chat Node */
+    .chat-node {
+      width: 480px;
+      height: 500px;
+      top: 100px;
+      left: 480px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-node.selected {
+      transform: scale(1.02);
+    }
+
+    .chat-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chat-indicator {
+      width: 10px;
+      height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+
+    .chat-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .chat-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .chat-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .chat-action {
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chat-action:hover {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .message {
+      margin-bottom: 16px;
+    }
+
+    .message-bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .message.user .message-bubble {
+      background: var(--accent);
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant .message-bubble {
+      background: var(--bg-input);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message-time {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .message.assistant .message-time {
+      text-align: left;
+    }
+
+    .tool-bubble {
+      margin: 12px 0;
+      padding: 10px 14px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      border-left: 3px solid var(--warning);
+    }
+
+    .tool-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--warning);
+      margin-bottom: 4px;
+    }
+
+    .tool-content {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .chat-input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .chat-input-wrapper {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      resize: none;
+      min-height: 44px;
+      max-height: 100px;
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+    }
+
+    .chat-send {
+      width: 44px;
+      height: 44px;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .chat-send:hover {
+      background: #1d4ed8;
+    }
+
+    /* Kanban Node */
+    .kanban-node {
+      width: 420px;
+      top: 120px;
+      right: 100px;
+    }
+
+    .kanban-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kanban-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .kanban-count {
+      padding: 4px 10px;
+      background: var(--bg-input);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .kanban-body {
+      padding: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .kanban-section {
+      margin-bottom: 16px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+    }
+
+    .section-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    .section-dot.todo { background: var(--text-muted); }
+    .section-dot.progress { background: var(--accent); }
+    .section-dot.done { background: var(--success); }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .section-count {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .task-card {
+      padding: 12px;
+      background: var(--bg-input);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .task-card:hover {
+      border-color: var(--border-strong);
+      background: white;
+    }
+
+    .task-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .task-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .task-tags {
+      display: flex;
+      gap: 4px;
+    }
+
+    .task-tag {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .task-tag.bug {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .task-tag.feature {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    .task-run {
+      width: 26px;
+      height: 26px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .task-card:hover .task-run {
+      opacity: 1;
+    }
+
+    /* Git Node */
+    .git-node {
+      width: 340px;
+      top: 450px;
+      left: 100px;
+    }
+
+    .git-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .git-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .git-icon {
+      color: var(--danger);
+      font-size: 18px;
+    }
+
+    .git-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .branch-badge {
+      padding: 4px 10px;
+      background: var(--success-light);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .git-body {
+      padding: 16px;
+    }
+
+    .git-section {
+      margin-bottom: 16px;
+    }
+
+    .git-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .git-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .file-change {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .file-change:hover {
+      background: var(--border);
+    }
+
+    .file-status {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .file-status.m { background: var(--warning-light); color: var(--warning); }
+    .file-status.a { background: var(--success-light); color: var(--success); }
+    .file-status.d { background: var(--danger-light); color: var(--danger); }
+
+    .file-name {
+      flex: 1;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .file-stats {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .file-stats .add { color: var(--success); }
+    .file-stats .del { color: var(--danger); }
+
+    .commit-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .commit-input:focus {
+      border-color: var(--accent);
+    }
+
+    .commit-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .commit-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* History Node */
+    .history-node {
+      width: 280px;
+      top: 450px;
+      left: 480px;
+    }
+
+    .history-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .history-body {
+      padding: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .history-item:hover {
+      background: var(--border);
+    }
+
+    .history-item-title {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .history-agent {
+      padding: 2px 6px;
+      background: white;
+      border-radius: 4px;
+    }
+
+    /* Connection Lines - SVG overlay */
+    .connections {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .connection {
+      fill: none;
+      stroke: var(--border-strong);
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
+    }
+
+    /* Minimap */
+    .minimap {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 180px;
+      height: 120px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      padding: 8px;
+      z-index: 100;
+    }
+
+    .minimap-content {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-input);
+      border-radius: 6px;
+      position: relative;
+    }
+
+    .minimap-viewport {
+      position: absolute;
+      border: 2px solid var(--accent);
+      border-radius: 3px;
+      background: rgba(37, 99, 235, 0.1);
+      top: 10%;
+      left: 10%;
+      width: 40%;
+      height: 50%;
+    }
+
+    /* Zoom Controls */
+    .zoom-controls {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 100;
+    }
+
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-md);
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .zoom-btn:hover {
+      background: var(--bg-input);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Back Link */
+    .back-link {
+      position: fixed;
+      top: 16px;
+      left: 88px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-sm);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 1000;
+      transition: all 0.15s;
+    }
+
+    .back-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">Back to Catalogue</a>
+
+  <div class="app">
+    <!-- Dock -->
+    <nav class="dock">
+      <div class="dock-logo">CC</div>
+      <button class="dock-item active" title="Canvas">
+        <span>&#9881;</span>
+      </button>
+      <button class="dock-item" title="Projects">
+        <span>&#128193;</span>
+        <span class="dock-badge">3</span>
+      </button>
+      <button class="dock-item" title="Agents">
+        <span>&#129302;</span>
+      </button>
+      <button class="dock-item" title="History">
+        <span>&#128337;</span>
+      </button>
+      <div class="dock-divider"></div>
+      <button class="dock-item" title="Git">
+        <span>&#9906;</span>
+        <span class="dock-badge">5</span>
+      </button>
+      <button class="dock-item" title="Files">
+        <span>&#128196;</span>
+      </button>
+      <div class="dock-spacer"></div>
+      <button class="dock-item" title="Settings">
+        <span>&#9881;</span>
+      </button>
+    </nav>
+
+    <!-- Canvas -->
+    <main class="canvas-area">
+      <!-- Controls -->
+      <div class="canvas-controls">
+        <div class="control-group">
+          <button class="control-btn active">
+            <span>&#9995;</span> Select
+          </button>
+          <button class="control-btn">
+            <span>&#10133;</span> Add Node
+          </button>
+          <button class="control-btn">
+            <span>&#128279;</span> Connect
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" class="search-input" placeholder="Search projects, agents, tasks, or history...">
+      </div>
+
+      <!-- Project Selector -->
+      <div class="project-selector">
+        <button class="project-btn">
+          <span class="project-indicator"></span>
+          <span>claude_control_panel</span>
+          <span class="project-chevron">&#9660;</span>
+        </button>
+      </div>
+
+      <!-- Connection Lines SVG -->
+      <svg class="connections" viewBox="0 0 1920 1080">
+        <path class="connection" d="M 420 200 Q 450 200, 480 200" />
+        <path class="connection" d="M 420 350 Q 420 450, 440 450" />
+        <path class="connection" d="M 760 500 Q 760 530, 760 550" />
+      </svg>
+
+      <!-- Agent Node -->
+      <div class="node agent-node">
+        <div class="node-header">
+          <div class="node-avatar">GH</div>
+          <div class="node-info">
+            <div class="node-title">Ghost</div>
+            <div class="node-subtitle">Claude Code Agent</div>
+          </div>
+          <span class="node-status">Online</span>
+        </div>
+        <div class="node-body">
+          <div class="node-stats">
+            <div class="stat-item">
+              <div class="stat-value">45.2k</div>
+              <div class="stat-label">Tokens</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">12</div>
+              <div class="stat-label">Messages</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">8</div>
+              <div class="stat-label">Tools</div>
+            </div>
+          </div>
+          <div class="node-actions">
+            <button class="node-btn">Resume</button>
+            <button class="node-btn">Compact</button>
+            <button class="node-btn primary">Open Chat</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Node -->
+      <div class="node chat-node selected">
+        <div class="chat-header">
+          <div class="chat-title">
+            <span class="chat-indicator"></span>
+            <span class="chat-name">Ghost</span>
+            <span class="chat-meta">Active Session</span>
+          </div>
+          <div class="chat-actions">
+            <button class="chat-action" title="Minimize">-</button>
+            <button class="chat-action" title="Maximize">[]</button>
+            <button class="chat-action" title="Close">x</button>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="message user">
+            <div class="message-bubble">
+              Create a design catalogue for the control panel with spatial canvas layout.
+            </div>
+            <div class="message-time">2:32 PM</div>
+          </div>
+          <div class="message assistant">
+            <div class="message-bubble">
+              I'll create a spatial canvas design - a node-based interface where agents, chats, tasks, and git panels float as draggable cards on an infinite canvas.
+
+              <div class="tool-bubble">
+                <div class="tool-label">
+                  <span>&#9654;</span> Task: Explore codebase
+                </div>
+                <div class="tool-content">Found React + tRPC architecture...</div>
+              </div>
+
+              This design enables visual organization of your workflow with connecting lines between related elements.
+            </div>
+            <div class="message-time">2:32 PM</div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <div class="chat-input-wrapper">
+            <textarea class="chat-input" placeholder="Message Ghost..." rows="1"></textarea>
+            <button class="chat-send">&#10148;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kanban Node -->
+      <div class="node kanban-node" style="right: 80px;">
+        <div class="kanban-header">
+          <span class="kanban-title">Tasks</span>
+          <span class="kanban-count">12 items</span>
+        </div>
+        <div class="kanban-body">
+          <div class="kanban-section">
+            <div class="section-header">
+              <span class="section-dot todo"></span>
+              <span class="section-title">To Do</span>
+              <span class="section-count">4</span>
+            </div>
+            <div class="task-card">
+              <div class="task-title">Add GitHub OAuth integration</div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+                <button class="task-run">&#9654;</button>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-title">Fix mobile keyboard overlap</div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag bug">bug</span>
+                </div>
+                <button class="task-run">&#9654;</button>
+              </div>
+            </div>
+          </div>
+          <div class="kanban-section">
+            <div class="section-header">
+              <span class="section-dot progress"></span>
+              <span class="section-title">In Progress</span>
+              <span class="section-count">2</span>
+            </div>
+            <div class="task-card">
+              <div class="task-title">Design catalogue exploration</div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">Ghost</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="kanban-section">
+            <div class="section-header">
+              <span class="section-dot done"></span>
+              <span class="section-title">Done</span>
+              <span class="section-count">6</span>
+            </div>
+            <div class="task-card">
+              <div class="task-title">tRPC migration complete</div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Git Node -->
+      <div class="node git-node">
+        <div class="git-header">
+          <div class="git-title">
+            <span class="git-icon">&#9906;</span>
+            <span class="git-name">Source Control</span>
+          </div>
+          <span class="branch-badge">
+            <span>&#9679;</span> main
+          </span>
+        </div>
+        <div class="git-body">
+          <div class="git-section">
+            <div class="git-section-title">Staged Changes (3)</div>
+            <div class="file-change">
+              <span class="file-status m">M</span>
+              <span class="file-name">App.tsx</span>
+              <span class="file-stats"><span class="add">+45</span> <span class="del">-12</span></span>
+            </div>
+            <div class="file-change">
+              <span class="file-status m">M</span>
+              <span class="file-name">index.css</span>
+              <span class="file-stats"><span class="add">+128</span> <span class="del">-3</span></span>
+            </div>
+            <div class="file-change">
+              <span class="file-status a">A</span>
+              <span class="file-name">Kanban.tsx</span>
+              <span class="file-stats"><span class="add">+234</span></span>
+            </div>
+          </div>
+          <div class="git-section">
+            <input type="text" class="commit-input" placeholder="Commit message...">
+            <button class="commit-btn">Commit Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Node -->
+      <div class="node history-node">
+        <div class="history-header">
+          <span class="history-title">Chat History</span>
+        </div>
+        <div class="history-body">
+          <div class="history-item">
+            <div class="history-item-title">Frontend design exploration</div>
+            <div class="history-item-meta">
+              <span class="history-agent">Ghost</span>
+              <span>Today, 2:32 PM</span>
+            </div>
+          </div>
+          <div class="history-item">
+            <div class="history-item-title">Mobile UX improvements</div>
+            <div class="history-item-meta">
+              <span class="history-agent">Ghost</span>
+              <span>Today, 11:15 AM</span>
+            </div>
+          </div>
+          <div class="history-item">
+            <div class="history-item-title">tRPC migration</div>
+            <div class="history-item-meta">
+              <span class="history-agent">Builder</span>
+              <span>Yesterday</span>
+            </div>
+          </div>
+          <div class="history-item">
+            <div class="history-item-title">Auth implementation</div>
+            <div class="history-item-meta">
+              <span class="history-agent">Ghost</span>
+              <span>2 days ago</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button class="zoom-btn">+</button>
+        <button class="zoom-btn">-</button>
+        <button class="zoom-btn">&#8634;</button>
+      </div>
+
+      <!-- Minimap -->
+      <div class="minimap">
+        <div class="minimap-content">
+          <div class="minimap-viewport"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

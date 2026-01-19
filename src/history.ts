@@ -1,9 +1,12 @@
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { execFile } from "child_process";
 import { createLogger } from "./utils/logger";
 import { config } from "./config";
-import type { HistoryResult, TerminalBlock } from "./types";
+import { loadTerminals } from "./terminal-store";
+import { getProject } from "./project-store";
+import type { HistoryResult, TerminalBlock, SessionSummary } from "./types";
 
 const log = createLogger("history");
 
@@ -35,12 +38,32 @@ interface SDKMessage {
       cache_read_input_tokens?: number;
     };
   };
-  timestamp?: number;
+  timestamp?: number | string;
   session_id?: string;
 }
 
+type SDKMessageContent = string | SDKContentBlock[];
+
+interface SessionMetadata {
+  sessionId: string;
+  createdAt: string;
+  firstMessage: string | null;
+  lastMessagePreview: string | null;
+  tokenCount: number;
+}
+
+function getClaudeProjectsDir(): string {
+  return path.join(os.homedir(), ".claude", "projects");
+}
+
+function projectPathToClaudeDir(projectPath: string): string {
+  const resolved = path.resolve(projectPath);
+  const folderName = resolved.replace(/[^a-zA-Z0-9]/g, "-");
+  return path.join(getClaudeProjectsDir(), folderName);
+}
+
 async function findSessionFile(sessionId: string): Promise<string | null> {
-  const claudeDir = path.join(os.homedir(), ".claude", "projects");
+  const claudeDir = getClaudeProjectsDir();
 
   try {
     const searchDir = async (dir: string): Promise<string | null> => {
@@ -52,8 +75,21 @@ async function findSessionFile(sessionId: string): Promise<string | null> {
         if (entry.isDirectory()) {
           const found = await searchDir(fullPath);
           if (found) return found;
-        } else if (entry.name === `${sessionId}.jsonl`) {
-          return fullPath;
+        } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+          if (entry.name === `${sessionId}.jsonl`) {
+            return fullPath;
+          }
+          try {
+            const content = await fs.readFile(fullPath, "utf-8");
+            if (
+              content.includes(`\"sessionId\":\"${sessionId}\"`) ||
+              content.includes(`\"session_id\":\"${sessionId}\"`)
+            ) {
+              return fullPath;
+            }
+          } catch (error) {
+            log.warn({ error, fullPath }, "Failed to read session file during search");
+          }
         }
       }
 
@@ -109,8 +145,273 @@ function parseToolResultContent(content: SDKContentBlock["content"]): string {
   return String(content || "");
 }
 
+function parseTimestamp(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function extractUserText(content: SDKMessageContent): string | null {
+  if (typeof content === "string") {
+    const cleaned = cleanImageMetadata(content);
+    if (!cleaned || isCliCommandArtifact(cleaned)) {
+      return null;
+    }
+    return cleaned;
+  }
+
+  if (Array.isArray(content)) {
+    const textParts = content
+      .filter((block) => block.type === "text" && block.text)
+      .map((block) => cleanImageMetadata(block.text as string))
+      .filter((text) => text && !isCliCommandArtifact(text));
+
+    const joined = textParts.join("\n").trim();
+    return joined ? joined : null;
+  }
+
+  return null;
+}
+
+function extractAssistantText(content: SDKMessageContent): string | null {
+  if (typeof content === "string") {
+    const cleaned = cleanImageMetadata(content);
+    if (!cleaned || isAssistantArtifact(cleaned)) {
+      return null;
+    }
+    return cleaned;
+  }
+
+  if (Array.isArray(content)) {
+    const textParts = content
+      .filter((block) => block.type === "text" && block.text)
+      .map((block) => cleanImageMetadata(block.text as string))
+      .filter((text) => text && !isAssistantArtifact(text));
+
+    const joined = textParts.join("\n").trim();
+    return joined ? joined : null;
+  }
+
+  return null;
+}
+
+async function readSessionMetadataFromFile(filePath: string, sessionId: string): Promise<SessionMetadata> {
+  const fileContent = await fs.readFile(filePath, "utf-8");
+  const lines = fileContent.split("\n").filter(Boolean);
+
+  let firstMessage: string | null = null;
+  let firstMessageTimestamp: number | null = null;
+  let firstUserMessage: string | null = null;
+  let firstUserTimestamp: number | null = null;
+  let lastMessagePreview: string | null = null;
+  let tokenCount = 0;
+
+  for (const line of lines) {
+    let msg: SDKMessage;
+    try {
+      msg = JSON.parse(line) as SDKMessage;
+    } catch {
+      continue;
+    }
+
+    const timestamp = parseTimestamp(msg.timestamp);
+
+    if (msg.type === "assistant" && msg.message?.usage) {
+      const usage = msg.message.usage;
+      const totalTokens = (usage.input_tokens || 0) +
+        (usage.cache_creation_input_tokens || 0) +
+        (usage.cache_read_input_tokens || 0);
+      if (totalTokens > 0) {
+        tokenCount = totalTokens;
+      }
+    }
+
+    if (msg.type === "user" && msg.message?.content) {
+      const text = extractUserText(msg.message.content);
+      if (text) {
+        if (!firstUserMessage) {
+          firstUserMessage = text;
+          if (timestamp) {
+            firstUserTimestamp = timestamp;
+          }
+        }
+        if (!firstMessage) {
+          firstMessage = text;
+          if (timestamp) {
+            firstMessageTimestamp = timestamp;
+          }
+        }
+        lastMessagePreview = text;
+      }
+    }
+
+    if (msg.type === "assistant" && msg.message?.content) {
+      const text = extractAssistantText(msg.message.content);
+      if (text) {
+        if (!firstMessage) {
+          firstMessage = text;
+          if (timestamp) {
+            firstMessageTimestamp = timestamp;
+          }
+        }
+        lastMessagePreview = text;
+      }
+    }
+  }
+
+  const stat = await fs.stat(filePath);
+  const fileTimestamp = Number.isFinite(stat.birthtimeMs) ? stat.birthtimeMs : stat.mtimeMs;
+  const createdAtMs = firstUserTimestamp ?? firstMessageTimestamp ?? fileTimestamp;
+
+  return {
+    sessionId,
+    createdAt: new Date(createdAtMs).toISOString(),
+    firstMessage: firstUserMessage ?? firstMessage,
+    lastMessagePreview,
+    tokenCount,
+  };
+}
+
+function hasMeaningfulMetadata(metadata: SessionMetadata): boolean {
+  return Boolean(metadata.firstMessage || metadata.lastMessagePreview || metadata.tokenCount > 0);
+}
+
+async function moveToTrash(filePath: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    execFile("trash", [filePath], (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+export async function listSessionsForProject(projectId: string): Promise<SessionSummary[]> {
+  const project = await getProject(projectId);
+  if (!project) {
+    log.warn({ projectId }, "Project not found while listing sessions");
+    return [];
+  }
+
+  const sessions = new Map<string, SessionSummary>();
+  const terminals = await loadTerminals();
+  const projectDir = projectPathToClaudeDir(project.path);
+  const projectFiles = new Map<string, string>();
+
+  try {
+    const entries = await fs.readdir(projectDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
+        continue;
+      }
+      const sessionId = entry.name.replace(/\.jsonl$/, "");
+      projectFiles.set(sessionId, path.join(projectDir, entry.name));
+    }
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code !== "ENOENT") {
+      log.warn({ error: err, projectDir }, "Failed to scan Claude project directory");
+    }
+  }
+
+  for (const terminal of terminals) {
+    if (terminal.projectId !== projectId || !terminal.sessionId) {
+      continue;
+    }
+
+    const sessionId = terminal.sessionId;
+    const filePath = projectFiles.get(sessionId) || await findSessionFile(sessionId);
+    let metadata: SessionMetadata | null = null;
+
+    if (filePath) {
+      try {
+        metadata = await readSessionMetadataFromFile(filePath, sessionId);
+      } catch (error) {
+        log.warn({ error, filePath, sessionId }, "Failed to read session metadata");
+      }
+    }
+
+    sessions.set(sessionId, {
+      sessionId,
+      projectId,
+      createdAt: metadata?.createdAt ?? terminal.createdAt,
+      lastMessagePreview: metadata?.lastMessagePreview ?? null,
+      tokenCount: metadata?.tokenCount ?? 0,
+      status: terminal.status,
+    });
+  }
+
+  for (const [sessionId, filePath] of projectFiles.entries()) {
+    if (sessions.has(sessionId)) {
+      continue;
+    }
+
+    try {
+      const metadata = await readSessionMetadataFromFile(filePath, sessionId);
+      if (!hasMeaningfulMetadata(metadata)) {
+        continue;
+      }
+      sessions.set(sessionId, {
+        sessionId,
+        projectId,
+        createdAt: metadata.createdAt,
+        lastMessagePreview: metadata.lastMessagePreview,
+        tokenCount: metadata.tokenCount,
+        status: "closed",
+      });
+    } catch (error) {
+      log.warn({ error, filePath, sessionId }, "Failed to read session metadata");
+    }
+  }
+
+  return Array.from(sessions.values()).sort((a, b) => {
+    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  });
+}
+
+export async function deleteSession(sessionId: string): Promise<boolean> {
+  const filePath = await findSessionFile(sessionId);
+  if (!filePath) {
+    return false;
+  }
+
+  await moveToTrash(filePath);
+  log.info({ filePath, sessionId }, "Session file moved to trash");
+  return true;
+}
+
+export async function getSessionMetadata(sessionId: string): Promise<SessionMetadata | null> {
+  const filePath = await findSessionFile(sessionId);
+  if (!filePath) {
+    return null;
+  }
+
+  try {
+    return await readSessionMetadataFromFile(filePath, sessionId);
+  } catch (error) {
+    log.warn({ error, filePath, sessionId }, "Failed to read session metadata");
+    return null;
+  }
+}
+
+/**
+ * Load session history from Claude's JSONL files.
+ * @param sessionId - Claude session ID
+ * @param terminalId - Optional terminal ID for the blocks (defaults to sessionId prefix)
+ */
+
 export async function loadSessionHistory(
-  sessionId: string
+  sessionId: string,
+  terminalId?: string
 ): Promise<HistoryResult> {
   const filePath = await findSessionFile(sessionId);
 
@@ -121,13 +422,15 @@ export async function loadSessionHistory(
 
   log.info({ filePath, sessionId }, "Loading session history");
 
+  // Use provided terminalId or derive from sessionId
+  const blockTerminalId = terminalId || sessionId.slice(0, 8);
+
   try {
     const fileContent = await fs.readFile(filePath, "utf-8");
     const lines = fileContent.trim().split("\n").filter(Boolean);
 
     let blocks: TerminalBlock[] = [];
     let toolBlockMap = new Map<string, TerminalBlock>();
-    const agentId = config.primaryAgentId;
     let lastContextTokens = 0;
     let lastCompactionIndex = -1;
 
@@ -164,7 +467,7 @@ export async function loadSessionHistory(
       blocks.push({
         id: crypto.randomUUID(),
         type: "summary",
-        agentId,
+        terminalId: blockTerminalId,
         timestamp: Date.now(),
         content: compactionSummary,
       });
@@ -174,7 +477,7 @@ export async function loadSessionHistory(
       const line = lines[i];
       try {
         const msg: SDKMessage = JSON.parse(line);
-        const timestamp = msg.timestamp || Date.now();
+        const timestamp = parseTimestamp(msg.timestamp) ?? Date.now();
 
         // Track token count from assistant messages (they have usage data)
         if (msg.type === "assistant" && msg.message?.usage) {
@@ -202,7 +505,7 @@ export async function loadSessionHistory(
               blocks.push({
                 id: crypto.randomUUID(),
                 type: "user_command",
-                agentId,
+                terminalId: blockTerminalId,
                 timestamp,
                 content: cleanedContent,
               });
@@ -243,7 +546,7 @@ export async function loadSessionHistory(
               blocks.push({
                 id: crypto.randomUUID(),
                 type: "user_command",
-                agentId,
+                terminalId: blockTerminalId,
                 timestamp,
                 content: cleanedText,
                 attachments: images.length > 0 ? images.map(img => ({
@@ -274,7 +577,7 @@ export async function loadSessionHistory(
                   blocks.push({
                     id: crypto.randomUUID(),
                     type: "text",
-                    agentId,
+                    terminalId: blockTerminalId,
                     timestamp,
                     content: cleanedText,
                   });
@@ -283,7 +586,7 @@ export async function loadSessionHistory(
                 const toolBlock: TerminalBlock = {
                   id: crypto.randomUUID(),
                   type: "tool_use",
-                  agentId,
+                  terminalId: blockTerminalId,
                   timestamp,
                   toolUseId: block.id,
                   toolName: block.name,
@@ -302,7 +605,7 @@ export async function loadSessionHistory(
           blocks.push({
             id: crypto.randomUUID(),
             type: "system",
-            agentId,
+            terminalId: blockTerminalId,
             timestamp,
             content: `Session initialized: ${msg.session_id?.slice(0, 8)}...`,
           });

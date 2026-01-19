@@ -25,7 +25,7 @@ function parseListEnv(value: string | undefined): string[] {
 }
 
 const port = parseIntEnv(process.env.PORT, 3847);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0"; // Bind to all interfaces for network access
 const workspaceRoot = expandPath(process.env.CLAUDE_WORKSPACE || "~/claude-workspace");
 const primaryAgentId = (process.env.PRIMARY_AGENT_ID || "overseer").trim();
 const assistantName = process.env.ASSISTANT_NAME || "Overseer";
@@ -36,6 +36,11 @@ const uploadMaxMb = parseIntEnv(process.env.UPLOAD_MAX_MB, 10);
 const historyBlockLimit = parseIntEnv(process.env.HISTORY_BLOCK_LIMIT, 300);
 const webToolsEnabled = (process.env.WEB_TOOLS_ENABLED || "false").toLowerCase() === "true";
 const maxThinkingTokens = parseIntEnv(process.env.MAX_THINKING_TOKENS, 31999);
+// Smart Compaction configuration
+const smartCompactEnabled = (process.env.SMART_COMPACT_ENABLED || "true").toLowerCase() === "true";
+const smartCompactThreshold = parseIntEnv(process.env.SMART_COMPACT_THRESHOLD, 160000); // ~80% of 200k
+const smartCompactWarningThreshold = parseIntEnv(process.env.SMART_COMPACT_WARNING, 140000); // ~70% of 200k
+const smartCompactInstructions = process.env.SMART_COMPACT_INSTRUCTIONS || null;
 
 const defaultOrigins = [
   `http://localhost:${port}`,
@@ -44,6 +49,12 @@ const defaultOrigins = [
   // Vite dev server
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  // Local network access (for mobile testing)
+  "http://192.168.1.248:5173",
+  "http://192.168.1.248:3847",
+  // Tailscale
+  "http://100.98.112.54:5173",
+  "http://100.98.112.54:3847",
 ];
 const allowedOrigins = parseListEnv(process.env.ALLOWED_ORIGINS);
 
@@ -89,6 +100,14 @@ export const config = {
 
   // Extended thinking configuration
   maxThinkingTokens,
+
+  // Smart Compaction
+  smartCompact: {
+    enabled: smartCompactEnabled,
+    thresholdTokens: smartCompactThreshold,
+    warningThresholdTokens: smartCompactWarningThreshold,
+    customInstructions: smartCompactInstructions,
+  },
 } as const;
 
 export function getAgentWorkspace(agentId: string): string {
@@ -96,28 +115,15 @@ export function getAgentWorkspace(agentId: string): string {
 }
 
 /**
- * Get runtime agent config from config file, falling back to env vars.
- * Returns null if no config exists and no env vars are set.
+ * Get runtime assistant name from config file, falling back to env vars.
  */
-export async function getRuntimeConfig(): Promise<{
-  primaryAgentId: string;
-  assistantName: string;
-} | null> {
+export async function getAssistantName(): Promise<string> {
   const ccpConfig = await loadConfig();
   if (ccpConfig) {
-    return {
-      primaryAgentId: ccpConfig.primaryAgent.id,
-      assistantName: ccpConfig.primaryAgent.name,
-    };
+    return ccpConfig.assistantName;
   }
-  // Fall back to env vars if they're explicitly set
-  if (process.env.PRIMARY_AGENT_ID || process.env.ASSISTANT_NAME) {
-    return {
-      primaryAgentId: config.primaryAgentId,
-      assistantName: config.assistantName,
-    };
-  }
-  return null;
+  // Fall back to env var
+  return config.assistantName;
 }
 
 export type Config = typeof config;

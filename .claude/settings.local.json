@@ -34,7 +34,24 @@
       "Bash(git fetch:*)",
       "Bash(bun run test)",
       "Bash(claude:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(timeout 3 bun run:*)",
+      "Bash(/opt/homebrew/bin/convert -density 300 -background \"#0a0b0d\" favicon.svg -resize 180x180 -gravity center -extent 180x180 apple-touch-icon.png)",
+      "mcp__exa__web_search_exa",
+      "Bash(ipconfig getifaddr:*)",
+      "Bash(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate:*)",
+      "Bash(ping:*)",
+      "Bash(networksetup:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:tailscale.com)",
+      "WebFetch(domain:discussions.apple.com)",
+      "Bash(sudo /usr/libexec/ApplicationFirewall/socketfilterfw:*)",
+      "Skill(design-catalogue)",
+      "Bash(open:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(bun run:*)",
+      "Bash(bun build:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

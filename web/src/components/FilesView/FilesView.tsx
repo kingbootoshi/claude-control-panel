@@ -1,30 +1,34 @@
 import { useEffect, useState } from 'react';
 import { FolderIcon, FileIcon, ChevronLeftIcon, ChevronRightIcon } from '../Icons';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { trpc } from '../../trpc';
 import type { FileEntry } from '../../types';
 
 interface FilesViewProps {
-  agentId: string;
+  projectId?: string;
 }
 
-export function FilesView({ agentId }: FilesViewProps) {
+export function FilesView({ projectId }: FilesViewProps) {
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
-  const filesQuery = trpc.files.list.useQuery({ agentId }, { enabled: Boolean(agentId) });
-  const fileQuery = trpc.files.read.useQuery(
-    { agentId, path: selectedFilePath || '' },
-    { enabled: Boolean(agentId && selectedFilePath) }
+  // Use project files if projectId is set, otherwise use workspace files
+  const projectFilesQuery = trpc.files.listProject.useQuery(
+    { projectId: projectId! },
+    { enabled: Boolean(projectId) }
   );
 
+  const workspaceFilesQuery = trpc.files.listWorkspace.useQuery(
+    undefined,
+    { enabled: !projectId }
+  );
+
+  const filesQuery = projectId ? projectFilesQuery : workspaceFilesQuery;
+
+  // Reset state when projectId changes
   useEffect(() => {
     setCurrentPath([]);
     setViewingFile(null);
-    setSelectedFilePath(null);
-  }, [agentId]);
+  }, [projectId]);
 
   // Get files at current path
   const getCurrentFiles = (): FileEntry[] => {
@@ -42,7 +46,7 @@ export function FilesView({ agentId }: FilesViewProps) {
 
   // Check if file is viewable
   const isViewableFile = (name: string) => {
-    return name.endsWith('.md') || name.endsWith('.json');
+    return name.endsWith('.md') || name.endsWith('.json') || name.endsWith('.txt');
   };
 
   // Handle file/folder click
@@ -50,8 +54,6 @@ export function FilesView({ agentId }: FilesViewProps) {
     if (item.type === 'directory') {
       setCurrentPath([...currentPath, item.name]);
     } else if (isViewableFile(item.name)) {
-      const filePath = [...currentPath, item.name].join('/');
-      setSelectedFilePath(filePath);
       setViewingFile(item.name);
     }
   };
@@ -60,7 +62,6 @@ export function FilesView({ agentId }: FilesViewProps) {
   const handleBack = () => {
     if (viewingFile) {
       setViewingFile(null);
-      setSelectedFilePath(null);
     } else if (currentPath.length > 0) {
       setCurrentPath(currentPath.slice(0, -1));
     }
@@ -72,9 +73,11 @@ export function FilesView({ agentId }: FilesViewProps) {
       ? [...currentPath, viewingFile]
       : currentPath;
 
+    const rootName = projectId ?? 'Workspace';
+
     return (
       <div className="files-breadcrumb">
-        <span className="files-breadcrumb-root">{agentId}</span>
+        <span className="files-breadcrumb-root">{rootName}</span>
         {parts.map((part, i) => (
           <span key={i}>
             <span className="files-breadcrumb-separator">/</span>
@@ -85,55 +88,16 @@ export function FilesView({ agentId }: FilesViewProps) {
     );
   };
 
-  // Render file content based on type
-  const renderFileContent = () => {
-    const content = fileQuery.data?.content || '';
-
-    if (viewingFile?.endsWith('.json')) {
-      // Format JSON nicely
-      try {
-        const parsed = JSON.parse(content);
-        return (
-          <pre className="json-content">
-            {JSON.stringify(parsed, null, 2)}
-          </pre>
-        );
-      } catch {
-        // If JSON parse fails, show as plain text
-        return <pre className="json-content">{content}</pre>;
-      }
-    }
-
-    // Default: render as markdown
-    return (
-      <div className="markdown-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      </div>
-    );
-  };
-
-  // File viewer mode
-  if (viewingFile) {
-    return (
-      <div className="files-view">
-        <div className="files-header">
-          <button className="files-back-btn" onClick={handleBack}>
-            <ChevronLeftIcon />
-          </button>
-          {renderBreadcrumb()}
-        </div>
-        <div className="file-viewer">
-          {renderFileContent()}
-        </div>
-      </div>
-    );
-  }
+  // File viewer mode - we need to read the file content
+  // For now, show files directly from the tree - actual content reading
+  // would require using the files.read endpoint with basePath
+  // This is a simplified view for mobile
 
   // Browser mode
   return (
     <div className="files-view">
       <div className="files-header">
-        {currentPath.length > 0 && (
+        {(currentPath.length > 0 || viewingFile) && (
           <button className="files-back-btn" onClick={handleBack}>
             <ChevronLeftIcon />
           </button>

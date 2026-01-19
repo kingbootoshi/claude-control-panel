@@ -3,9 +3,15 @@ import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
 import { TRPCError } from "@trpc/server";
 import { config } from "../config";
 import type { TerminalManagerLike } from "../types";
+import type { TmuxManager } from "../tmux-manager";
+import type { CodexManager } from "../codex-manager";
+import type { AgentWatcher } from "../agent-watcher";
 
 export interface Context {
   terminalManager: TerminalManagerLike;
+  tmuxManager: TmuxManager;
+  codexManager: CodexManager;
+  agentWatcher: AgentWatcher;
   assistantName: string;
 }
 
@@ -43,7 +49,16 @@ function assertValidToken(token: string | null): void {
   }
 }
 
-export function createContextFactory(terminalManager: TerminalManagerLike) {
+export interface ContextFactoryOptions {
+  terminalManager: TerminalManagerLike;
+  tmuxManager: TmuxManager;
+  codexManager: CodexManager;
+  agentWatcher: AgentWatcher;
+}
+
+export function createContextFactory(options: ContextFactoryOptions) {
+  const { terminalManager, tmuxManager, codexManager, agentWatcher } = options;
+
   return {
     createHttpContext({ req }: CreateExpressContextOptions): Context {
       const token = getAuthTokenFromHeaders(req);
@@ -51,6 +66,9 @@ export function createContextFactory(terminalManager: TerminalManagerLike) {
 
       return {
         terminalManager,
+        tmuxManager,
+        codexManager,
+        agentWatcher,
         assistantName: terminalManager.getAssistantName(),
       };
     },
@@ -62,6 +80,9 @@ export function createContextFactory(terminalManager: TerminalManagerLike) {
 
       return {
         terminalManager,
+        tmuxManager,
+        codexManager,
+        agentWatcher,
         assistantName: terminalManager.getAssistantName(),
       };
     },

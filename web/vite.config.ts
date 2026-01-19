@@ -8,6 +8,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // Expose on network for mobile testing
     fs: {
       allow: ['..'],
     },

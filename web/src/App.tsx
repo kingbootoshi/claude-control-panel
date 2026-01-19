@@ -4,12 +4,9 @@ import { useTerminal } from './hooks/useTerminal';
 import { useVisualViewport } from './hooks/useVisualViewport';
 import { trpc } from './trpc';
 import { Home } from './components/Home';
-import { Sidebar } from './components/Sidebar';
-import { TabBar } from './components/TabBar';
+import { Sidebar, type NavItem } from './components/Sidebar';
 import { Terminal as TerminalComponent } from './components/Terminal';
 import { WarningBanner } from './components/WarningBanner';
-import { RightSidebar } from './components/RightSidebar';
-import { FileViewer } from './components/FileViewer';
 import { MobileHeader } from './components/MobileHeader';
 import { MobileNav, type MobileTab } from './components/MobileNav';
 import { QuickMenu } from './components/QuickMenu';
@@ -17,11 +14,22 @@ import { FilesView } from './components/FilesView';
 import { SetupWizard } from './components/SetupWizard';
 import { Settings } from './components/Settings';
 import { AddProjectModal } from './components/AddProjectModal';
+import { AppShell, TopBar, StatusBar } from './components/Layout';
+import { RightPanel } from './components/RightPanel';
+import { ProjectsView } from './components/ProjectsView';
+import { ProjectView } from './components/ProjectView';
+// SPEC-v2: TmuxOrchestration and CodexDashboard moved to project-scoped Terminal view
+// import { TmuxOrchestration } from './components/TmuxOrchestration';
+// import { CodexDashboard } from './components/CodexDashboard';
 
 const WARNING_THRESHOLD_TOKENS = 102400; // 80% of 128k
 const MOBILE_BREAKPOINT = 768;
 
-type View = 'home' | 'chat';
+// SPEC-v2: Simplified view structure
+// - home: dashboard with recent projects and active sessions
+// - projects: full-screen project list
+// - project: project view with chat/terminal/git/history tabs
+type View = 'home' | 'projects' | 'project';
 
 // Hook to detect mobile viewport
 function useIsMobile() {
@@ -52,9 +60,9 @@ export default function App() {
   const [warningDismissed, setWarningDismissed] = useState(false);
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [viewingFile, setViewingFile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
+  // viewingFile moved to ProjectView component
 
   // Mobile state
   const isMobile = useIsMobile();
@@ -76,7 +84,7 @@ export default function App() {
     onSuccess: (data) => {
       console.log('Terminal spawned:', data.terminalId);
       setActiveTerminalId(data.terminalId);
-      setView('chat');
+      setView('project');
       utils.terminals.list.invalidate();
     },
     onError: (error) => {
@@ -103,17 +111,7 @@ export default function App() {
     onError: (error) => setConnectionError(error.message),
   });
 
-  const killTerminalMutation = trpc.terminals.kill.useMutation({
-    onSuccess: () => {
-      utils.terminals.list.invalidate();
-      // If we killed the active terminal, go home
-      if (activeTerminalId) {
-        setView('home');
-        setActiveTerminalId(null);
-        setActiveProjectId(null);
-      }
-    },
-  });
+  // killTerminalMutation moved to ProjectView
 
   const { blocks, tokenCount, sessionSummary, addUserCommand, handleEvent, applyHistory, clearBlocks } = useTerminal();
 
@@ -149,10 +147,7 @@ export default function App() {
     }
   }, [historyQuery.data, applyHistory]);
 
-  // Clear file viewer when terminal changes
-  useEffect(() => {
-    setViewingFile(null);
-  }, [activeTerminalId]);
+  // File viewer state moved to ProjectView
 
   // Subscribe to terminal events
   trpc.terminals.events.useSubscription(
@@ -184,8 +179,14 @@ export default function App() {
     if (isMobile) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape - go back to home
-      if (e.key === 'Escape' && view === 'chat') {
+      // Escape - go back to home from project view
+      if (e.key === 'Escape' && view === 'project') {
+        setView('home');
+        setActiveTerminalId(null);
+        setActiveProjectId(null);
+      }
+      // Escape from projects list goes to home
+      if (e.key === 'Escape' && view === 'projects') {
         setView('home');
       }
     };
@@ -210,7 +211,7 @@ export default function App() {
       // Resume existing terminal
       setActiveTerminalId(existingTerminal.id);
       setActiveProjectId(projectId);
-      setView('chat');
+      setView('project');
     } else {
       // Spawn new terminal for project
       setActiveProjectId(projectId);
@@ -220,6 +221,12 @@ export default function App() {
 
   const handleResumeTerminal = useCallback((terminalId: string) => {
     const terminal = terminals.find(t => t.id === terminalId);
+    if (!terminal && terminalId === 'ghost') {
+      setActiveTerminalId(terminalId);
+      setActiveProjectId(null);
+      setView('project');
+      return;
+    }
     if (terminal) {
       // If terminal is closed, resume it first
       if (terminal.status === 'closed') {
@@ -227,14 +234,11 @@ export default function App() {
       }
       setActiveTerminalId(terminalId);
       setActiveProjectId(terminal.projectId);
-      setView('chat');
+      setView('project');
     }
   }, [terminals, resumeTerminalMutation]);
 
-  const handleCloseTerminal = useCallback((terminalId: string) => {
-    // Close = kill permanently (history will be separate feature)
-    killTerminalMutation.mutate({ terminalId });
-  }, [killTerminalMutation]);
+  // handleCloseTerminal moved to ProjectView
 
   const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
     if ((!content.trim() && !attachments?.length) || !connected || !activeTerminalId) return;
@@ -287,6 +291,35 @@ export default function App() {
     setActiveProjectId(null);
   }, []);
 
+  // Navigation handler for sidebar nav items (home sidebar)
+  const handleNavClick = useCallback((nav: NavItem) => {
+    switch (nav) {
+      case 'home':
+        setView('home');
+        setActiveTerminalId(null);
+        setActiveProjectId(null);
+        break;
+      case 'projects':
+        setView('projects');
+        break;
+      case 'settings':
+        setShowSettings(true);
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  // Get active nav item based on current view
+  const getActiveNav = (): NavItem => {
+    switch (view) {
+      case 'home': return 'home';
+      case 'projects': return 'projects';
+      case 'project': return 'home'; // When in project, home is not active but we default to it
+      default: return 'home';
+    }
+  };
+
   // Get assistant name from config
   const assistantName = configQuery.data?.assistantName ?? 'Claude';
 
@@ -324,19 +357,77 @@ export default function App() {
     );
   }
 
-  // Home view
-  if (view === 'home') {
+  // Get active project info
+  const activeProject = projects.find(p => p.id === activeProjectId);
+
+  // Helper to get main content based on view (for home/projects views)
+  const getHomeContent = () => {
+    switch (view) {
+      case 'projects':
+        return (
+          <ProjectsView
+            projects={projects}
+            terminals={terminals}
+            onProjectSelect={handleProjectSelect}
+            onNewProject={() => setShowAddProject(true)}
+            onBack={handleGoHome}
+          />
+        );
+      case 'home':
+      default:
+        return (
+          <Home
+            projects={projects}
+            terminals={terminals}
+            assistantName={assistantName}
+            onProjectSelect={handleProjectSelect}
+            onNewChat={handleNewChat}
+            onNewProject={() => setShowAddProject(true)}
+            onResumeTerminal={handleResumeTerminal}
+          />
+        );
+    }
+  };
+
+  // Home/Projects views - Global layout with home sidebar
+  if ((view === 'home' || view === 'projects') && !isMobile) {
     return (
       <>
-        <Home
-          projects={projects}
-          terminals={terminals}
-          assistantName={assistantName}
-          onProjectSelect={handleProjectSelect}
-          onNewChat={handleNewChat}
-          onNewProject={() => setShowAddProject(true)}
-          onResumeTerminal={handleResumeTerminal}
-          onSettingsClick={() => setShowSettings(true)}
+        <AppShell
+          topBar={
+            <TopBar
+              activeTab={view}
+              connected={true}
+              projectCount={projects.length}
+            />
+          }
+          sidebar={
+            <Sidebar
+              mode="home"
+              projectCount={projects.length}
+              activeNav={getActiveNav()}
+              onNavClick={handleNavClick}
+              onSettingsClick={() => setShowSettings(true)}
+            />
+          }
+          main={getHomeContent()}
+          rightPanel={
+            view === 'home' ? (
+              <RightPanel
+                mode="home"
+                terminals={terminals}
+                projects={projects}
+                onSessionClick={handleResumeTerminal}
+              />
+            ) : undefined
+          }
+          statusBar={
+            <StatusBar
+              version="v0.1.0"
+              projectCount={projects.length}
+              agentCount={terminals.filter(t => t.status === 'running').length}
+            />
+          }
         />
         {showAddProject && (
           <AddProjectModal
@@ -350,8 +441,32 @@ export default function App() {
     );
   }
 
-  // Get active project info
-  const activeProject = projects.find(p => p.id === activeProjectId);
+  // Mobile home view - simplified layout
+  if (view === 'home' && isMobile) {
+    return (
+      <>
+        <div className="app-shell mobile">
+          <Home
+            projects={projects}
+            terminals={terminals}
+            assistantName={assistantName}
+            onProjectSelect={handleProjectSelect}
+            onNewChat={handleNewChat}
+            onNewProject={() => setShowAddProject(true)}
+            onResumeTerminal={handleResumeTerminal}
+          />
+        </div>
+        {showAddProject && (
+          <AddProjectModal
+            onSubmit={handleAddProject}
+            onClose={() => setShowAddProject(false)}
+            isLoading={createProjectMutation.isPending}
+            error={createProjectMutation.error?.message}
+          />
+        )}
+      </>
+    );
+  }
 
   // Mobile chat layout
   if (isMobile) {
@@ -413,61 +528,24 @@ export default function App() {
     );
   }
 
-  // Desktop chat layout
+  // Desktop project view - use new ProjectView component
   return (
-    <div className="app-layout">
-      <Sidebar
-        terminals={terminals}
-        projects={projects}
-        activeTerminalId={activeTerminalId}
-        onTerminalSelect={handleResumeTerminal}
-        onTerminalClose={handleCloseTerminal}
-        onCompact={handleCompact}
-        onSettingsClick={() => setShowSettings(true)}
-        onHomeClick={handleGoHome}
-        tokenCount={tokenCount}
-      />
-
-      <main className="main-area">
-        <TabBar
-          terminals={terminals}
-          projects={projects}
-          activeTerminalId={activeTerminalId}
-          onTabSelect={handleResumeTerminal}
-          onNewChat={handleNewChat}
-          tokenCount={tokenCount}
-          onCompact={handleCompact}
-        />
-
-        {!warningDismissed && (
-          <WarningBanner
-            tokenCount={tokenCount}
-            onCompact={handleCompact}
-            onDismiss={() => setWarningDismissed(true)}
-          />
-        )}
-
-        {viewingFile && activeProjectId ? (
-          <FileViewer
-            projectId={activeProjectId}
-            filePath={viewingFile}
-            onClose={() => setViewingFile(null)}
-          />
-        ) : (
-          <TerminalComponent
-            blocks={terminalBlocks}
-            onSubmit={handleSubmit}
-            connected={connected}
-            connectionError={connectionError}
-          />
-        )}
-      </main>
-
-      <RightSidebar
-        summary={sessionSummary}
-        projectId={activeProjectId}
-        onFileSelect={setViewingFile}
-      />
-    </div>
+    <ProjectView
+      project={activeProject ?? null}
+      terminal={activeTerminal ?? null}
+      terminals={terminals}
+      projects={projects}
+      blocks={terminalBlocks}
+      tokenCount={tokenCount}
+      sessionSummary={sessionSummary}
+      connected={connected}
+      connectionError={connectionError}
+      onSubmit={handleSubmit}
+      onCompact={handleCompact}
+      onBack={handleGoHome}
+      onSettingsClick={() => setShowSettings(true)}
+      onTerminalSelect={handleResumeTerminal}
+      onNewChat={handleNewChat}
+    />
   );
 }

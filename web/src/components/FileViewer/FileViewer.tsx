@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { trpc } from '../../trpc';
 
 interface FileViewerProps {
-  agentId: string;
+  projectId: string;
   filePath: string;
   onClose: () => void;
 }
@@ -39,10 +39,16 @@ function formatJsonWithColors(json: string): React.ReactNode[] {
   });
 }
 
-export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
+export function FileViewer({ projectId, filePath, onClose }: FileViewerProps) {
+  // Get the project to find its path
+  const projectQuery = trpc.projects.get.useQuery({ id: projectId });
+
   const fileQuery = trpc.files.read.useQuery(
-    { agentId, path: filePath },
-    { enabled: Boolean(agentId && filePath) }
+    {
+      basePath: projectQuery.data?.path ?? '',
+      filePath,
+    },
+    { enabled: Boolean(projectQuery.data?.path && filePath) }
   );
 
   const isJson = filePath.endsWith('.json');
@@ -62,7 +68,7 @@ export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
     <div className="file-viewer-panel">
       <div className="file-viewer-header">
         <div className="file-viewer-path">
-          <span className="file-viewer-agent">{agentId}</span>
+          <span className="file-viewer-agent">{projectQuery.data?.name ?? projectId}</span>
           <span className="file-viewer-separator">/</span>
           <span className="file-viewer-file">{filePath}</span>
         </div>
@@ -72,7 +78,7 @@ export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
       </div>
 
       <div className="file-viewer-content">
-        {fileQuery.isLoading && (
+        {(fileQuery.isLoading || projectQuery.isLoading) && (
           <div className="file-viewer-loading">Loading...</div>
         )}
 
@@ -80,12 +86,12 @@ export function FileViewer({ agentId, filePath, onClose }: FileViewerProps) {
           <div className="file-viewer-error">{fileQuery.error.message}</div>
         )}
 
-        {!fileQuery.isLoading && !fileQuery.error && (
+        {!fileQuery.isLoading && !fileQuery.error && fileQuery.data && (
           isJson ? (
-            <JsonViewer content={fileQuery.data?.content || ''} />
+            <JsonViewer content={fileQuery.data.content} />
           ) : (
             <div className="markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileQuery.data?.content || ''}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileQuery.data.content}</ReactMarkdown>
             </div>
           )
         )}

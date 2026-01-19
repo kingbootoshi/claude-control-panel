@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCP - Kanban Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --blue-dim: rgba(59, 130, 246, 0.15);
+      --purple: #a855f7;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      grid-template-rows: 40px 1fr 28px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: var(--void-deep);
+      color: var(--text);
+    }
+
+    .top-bar-spacer { flex: 1; }
+
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .top-btn {
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .top-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .top-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .top-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-back {
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .sidebar-back:hover {
+      color: var(--accent);
+    }
+
+    .project-info-card {
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      margin: 0 8px 8px;
+      border-radius: 6px;
+    }
+
+    .project-name-display {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .project-branch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--blue);
+    }
+
+    .project-branch svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      font-size: 13px;
+    }
+
+    .nav-item:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--void-elevated);
+      color: var(--text);
+      border-left-color: var(--accent);
+    }
+
+    .nav-item svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: var(--void-elevated);
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+
+    .nav-badge.alert {
+      background: var(--accent-dim);
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--void-border);
+      margin: 8px 16px;
+    }
+
+    /* Kanban Board */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .board-header {
+      padding: 16px 24px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .board-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .board-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .board-stat .value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .board-stat .accent {
+      color: var(--accent);
+    }
+
+    .kanban {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      padding: 20px 24px;
+      overflow-x: auto;
+    }
+
+    .kanban-column {
+      flex: 0 0 300px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      max-height: 100%;
+    }
+
+    .column-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .column-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .column-count {
+      padding: 2px 8px;
+      background: var(--void-elevated);
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--text);
+    }
+
+    .column-add {
+      width: 24px;
+      height: 24px;
+      background: var(--void-elevated);
+      border: none;
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .column-add:hover {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .column-add svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .column-body {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    /* Task Card */
+    .task-card {
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .task-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .task-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .task-card.dragging {
+      opacity: 0.5;
+    }
+
+    .task-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .task-priority {
+      width: 4px;
+      height: 100%;
+      min-height: 36px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .task-priority.high { background: var(--red); }
+    .task-priority.medium { background: var(--accent); }
+    .task-priority.low { background: var(--green); }
+
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .task-description {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .task-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .task-tags {
+      display: flex;
+      gap: 6px;
+    }
+
+    .task-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .task-tag.feature {
+      background: var(--blue-dim);
+      color: var(--blue);
+    }
+
+    .task-tag.bug {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .task-tag.enhancement {
+      background: var(--green-dim);
+      color: var(--green);
+    }
+
+    .task-tag.docs {
+      background: rgba(168, 85, 247, 0.15);
+      color: var(--purple);
+    }
+
+    .task-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .task-action {
+      width: 24px;
+      height: 24px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      opacity: 0;
+    }
+
+    .task-card:hover .task-action {
+      opacity: 1;
+    }
+
+    .task-action:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .task-action svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Agent badge on task */
+    .task-agent {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      color: var(--accent);
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--void-border);
+    }
+
+    .task-agent .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+    }
+
+    .status-bar-left,
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-bar-item {
+      color: var(--text-dim);
+    }
+
+    .status-bar-item .value {
+      color: var(--text);
+    }
+
+    .status-bar-item .accent {
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Navigation */
+    .flow-nav {
+      position: fixed;
+      bottom: 36px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .flow-nav a {
+      padding: 6px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .flow-nav a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .flow-nav a.current {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+  </style>
+</head>
+<body>
+  <div class="flow-nav">
+    <a href="00-home-project-select.html">home</a>
+    <a href="01-project-workspace.html">workspace</a>
+    <a href="02-kanban-tasks.html" class="current">kanban</a>
+    <a href="03-agent-running.html">agent</a>
+    <a href="04-git-panel.html">git</a>
+    <a href="05-history.html">history</a>
+    <a href="06-research-mode.html">research</a>
+  </div>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="window-controls">
+        <span class="window-dot red"></span>
+        <span class="window-dot yellow"></span>
+        <span class="window-dot green"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab" onclick="window.location='01-project-workspace.html'">ghost.session</button>
+        <button class="tab active">tasks.view</button>
+        <button class="tab">CLAUDE.md</button>
+      </div>
+      <div class="top-bar-spacer"></div>
+      <div class="top-bar-actions">
+        <button class="top-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          search
+        </button>
+        <button class="top-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          filter
+        </button>
+        <button class="top-btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          new task
+        </button>
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>Workspace</span>
+        <a href="00-home-project-select.html" class="sidebar-back">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </a>
+      </div>
+      <div class="project-info-card">
+        <div class="project-name-display">claude_control_panel</div>
+        <div class="project-branch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span>main</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item" onclick="window.location='01-project-workspace.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span>chat</span>
+        </div>
+        <div class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>tasks</span>
+          <span class="nav-badge alert">12</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v10"/>
+          </svg>
+          <span>agents</span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>
+          </svg>
+          <span>files</span>
+        </div>
+        <div class="nav-item" onclick="window.location='05-history.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <span>history</span>
+        </div>
+        <div class="nav-item" onclick="window.location='04-git-panel.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span>git</span>
+          <span class="nav-badge">5</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Kanban Board -->
+    <main class="main">
+      <div class="board-header">
+        <div class="board-title">Task Board</div>
+        <div class="board-stats">
+          <span class="board-stat"><span class="value">4</span> to do</span>
+          <span class="board-stat"><span class="accent">2</span> in progress</span>
+          <span class="board-stat"><span class="value">6</span> done today</span>
+        </div>
+      </div>
+
+      <div class="kanban">
+        <!-- To Do Column -->
+        <div class="kanban-column">
+          <div class="column-header">
+            <div class="column-title">
+              <span>To Do</span>
+              <span class="column-count">4</span>
+            </div>
+            <button class="column-add">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="column-body">
+            <div class="task-card" onclick="window.location='03-agent-running.html'">
+              <div class="task-header">
+                <div class="task-priority high"></div>
+                <div class="task-content">
+                  <div class="task-title">Add GitHub OAuth integration</div>
+                  <div class="task-description">Create OAuth flow, add callback route, persist tokens</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+                <div class="task-actions">
+                  <button class="task-action" title="Run with agent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card">
+              <div class="task-header">
+                <div class="task-priority medium"></div>
+                <div class="task-content">
+                  <div class="task-title">Fix mobile viewport height on iOS Safari</div>
+                  <div class="task-description">Address the 100vh issue on iOS Safari PWA mode</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag bug">bug</span>
+                </div>
+                <div class="task-actions">
+                  <button class="task-action" title="Run with agent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card">
+              <div class="task-header">
+                <div class="task-priority low"></div>
+                <div class="task-content">
+                  <div class="task-title">Refactor terminal component for better perf</div>
+                  <div class="task-description">Virtualize long message lists, optimize re-renders</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag enhancement">enhancement</span>
+                </div>
+                <div class="task-actions">
+                  <button class="task-action" title="Run with agent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card">
+              <div class="task-header">
+                <div class="task-priority low"></div>
+                <div class="task-content">
+                  <div class="task-title">Add keyboard shortcuts documentation</div>
+                  <div class="task-description">Document all available keyboard shortcuts</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag docs">docs</span>
+                </div>
+                <div class="task-actions">
+                  <button class="task-action" title="Run with agent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="kanban-column">
+          <div class="column-header">
+            <div class="column-title">
+              <span>In Progress</span>
+              <span class="column-count">2</span>
+            </div>
+            <button class="column-add">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="column-body">
+            <div class="task-card">
+              <div class="task-header">
+                <div class="task-priority high"></div>
+                <div class="task-content">
+                  <div class="task-title">Implement session persistence with Redis</div>
+                  <div class="task-description">Store session state in Redis for resumability</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+              </div>
+              <div class="task-agent">
+                <span class="dot"></span>
+                <span>ghost working...</span>
+              </div>
+            </div>
+
+            <div class="task-card">
+              <div class="task-header">
+                <div class="task-priority medium"></div>
+                <div class="task-content">
+                  <div class="task-title">Add extended thinking toggle</div>
+                  <div class="task-description">Allow users to enable/disable extended thinking</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag enhancement">enhancement</span>
+                </div>
+              </div>
+              <div class="task-agent">
+                <span class="dot"></span>
+                <span>builder working...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Done Column -->
+        <div class="kanban-column">
+          <div class="column-header">
+            <div class="column-title">
+              <span>Done</span>
+              <span class="column-count">6</span>
+            </div>
+          </div>
+          <div class="column-body">
+            <div class="task-card" style="opacity: 0.7;">
+              <div class="task-header">
+                <div class="task-priority low" style="background: var(--text-muted);"></div>
+                <div class="task-content">
+                  <div class="task-title" style="text-decoration: line-through;">Fix setup wizard scroll on mobile</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag bug">bug</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card" style="opacity: 0.7;">
+              <div class="task-header">
+                <div class="task-priority low" style="background: var(--text-muted);"></div>
+                <div class="task-content">
+                  <div class="task-title" style="text-decoration: line-through;">iOS Safari PWA mobile UX improvements</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag bug">bug</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card" style="opacity: 0.7;">
+              <div class="task-header">
+                <div class="task-priority low" style="background: var(--text-muted);"></div>
+                <div class="task-content">
+                  <div class="task-title" style="text-decoration: line-through;">Add setup wizard and settings panel</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-card" style="opacity: 0.7;">
+              <div class="task-header">
+                <div class="task-priority low" style="background: var(--text-muted);"></div>
+                <div class="task-content">
+                  <div class="task-title" style="text-decoration: line-through;">Add extended thinking with streaming</div>
+                </div>
+              </div>
+              <div class="task-footer">
+                <div class="task-tags">
+                  <span class="task-tag feature">feature</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-bar-left">
+        <span class="status-bar-item">ccp <span class="value">v0.1.0</span></span>
+        <span class="status-bar-item">project: <span class="value">claude_control_panel</span></span>
+      </div>
+      <div class="status-bar-right">
+        <span class="status-bar-item"><span class="value">12</span> tasks</span>
+        <span class="status-bar-item"><span class="accent">2 agents working</span></span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

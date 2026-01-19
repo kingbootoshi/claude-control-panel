@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCP - Git Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239, 68, 68, 0.15);
+      --blue: #3b82f6;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 200px 1fr 320px;
+      grid-template-rows: 40px 1fr 28px;
+      height: 100dvh;
+      background: var(--void-deep);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #febc2e; }
+    .window-dot.green { background: #28c840; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: var(--void-deep);
+      color: var(--text);
+    }
+
+    .top-bar-spacer { flex: 1; }
+
+    .top-bar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .top-btn {
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .top-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .top-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .top-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .project-info-card {
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      margin: 0 8px 8px;
+      border-radius: 6px;
+    }
+
+    .project-name-display {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .project-branch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--blue);
+    }
+
+    .project-branch svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      font-size: 13px;
+    }
+
+    .nav-item:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--void-elevated);
+      color: var(--text);
+      border-left-color: var(--accent);
+    }
+
+    .nav-item svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: var(--void-elevated);
+      border-radius: 10px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--void-border);
+      margin: 8px 16px;
+    }
+
+    /* Main Content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      background: var(--void-deep);
+      overflow: hidden;
+    }
+
+    .main-header {
+      padding: 16px 24px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .main-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .branch-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .branch-selector:hover {
+      border-color: var(--accent);
+    }
+
+    .branch-selector svg {
+      width: 14px;
+      height: 14px;
+      color: var(--blue);
+    }
+
+    .branch-name {
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .branch-arrow {
+      color: var(--text-muted);
+    }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    /* Changes Section */
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .section-count {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .section-btn {
+      padding: 4px 10px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 10px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .section-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* File list */
+    .file-list {
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--void-border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .file-item:last-child {
+      border-bottom: none;
+    }
+
+    .file-item:hover {
+      background: var(--void-elevated);
+    }
+
+    .file-item.selected {
+      background: var(--accent-dim);
+    }
+
+    .file-checkbox {
+      width: 16px;
+      height: 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-checkbox.checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .file-checkbox svg {
+      width: 10px;
+      height: 10px;
+      color: var(--void-deep);
+    }
+
+    .file-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .file-status.modified { background: var(--accent); }
+    .file-status.added { background: var(--green); }
+    .file-status.deleted { background: var(--red); }
+
+    .file-path {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-changes {
+      font-size: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .file-add {
+      color: var(--green);
+    }
+
+    .file-del {
+      color: var(--red);
+    }
+
+    /* Commit form */
+    .commit-form {
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .commit-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      margin-bottom: 12px;
+      resize: none;
+    }
+
+    .commit-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .commit-input:focus {
+      border-color: var(--accent);
+    }
+
+    .commit-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .commit-btn {
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .commit-btn.primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: var(--void-deep);
+      font-weight: 500;
+    }
+
+    .commit-btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    .commit-btn.secondary {
+      background: transparent;
+      border: 1px solid var(--void-border);
+      color: var(--text-dim);
+    }
+
+    .commit-btn.secondary:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
+    }
+
+    /* Right Sidebar - Diff View */
+    .diff-panel {
+      background: var(--void-surface);
+      border-left: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .diff-header {
+      padding: 12px 16px;
+      background: var(--void-elevated);
+      border-bottom: 1px solid var(--void-border);
+    }
+
+    .diff-file {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .diff-stats {
+      font-size: 10px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .diff-add {
+      color: var(--green);
+    }
+
+    .diff-del {
+      color: var(--red);
+    }
+
+    .diff-content {
+      flex: 1;
+      overflow: auto;
+      font-size: 11px;
+    }
+
+    .diff-line {
+      display: flex;
+      padding: 2px 12px;
+      white-space: pre;
+    }
+
+    .diff-line.add {
+      background: var(--green-dim);
+    }
+
+    .diff-line.del {
+      background: var(--red-dim);
+    }
+
+    .diff-line-num {
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: right;
+      padding-right: 12px;
+      user-select: none;
+    }
+
+    .diff-line-code {
+      flex: 1;
+    }
+
+    .diff-line.add .diff-line-code {
+      color: var(--green);
+    }
+
+    .diff-line.del .diff-line-code {
+      color: var(--red);
+    }
+
+    /* Status Bar */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+    }
+
+    .status-bar-left,
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-bar-item {
+      color: var(--text-dim);
+    }
+
+    .status-bar-item .value {
+      color: var(--text);
+    }
+
+    .status-bar-item .accent {
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    /* Navigation */
+    .flow-nav {
+      position: fixed;
+      bottom: 36px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .flow-nav a {
+      padding: 6px 12px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+
+    .flow-nav a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .flow-nav a.current {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+  </style>
+</head>
+<body>
+  <div class="flow-nav">
+    <a href="00-home-project-select.html">home</a>
+    <a href="01-project-workspace.html">workspace</a>
+    <a href="02-kanban-tasks.html">kanban</a>
+    <a href="03-agent-running.html">agent</a>
+    <a href="04-git-panel.html" class="current">git</a>
+    <a href="05-history.html">history</a>
+    <a href="06-research-mode.html">research</a>
+  </div>
+
+  <div class="app">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="window-controls">
+        <span class="window-dot red"></span>
+        <span class="window-dot yellow"></span>
+        <span class="window-dot green"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab" onclick="window.location='01-project-workspace.html'">ghost.session</button>
+        <button class="tab" onclick="window.location='02-kanban-tasks.html'">tasks.view</button>
+        <button class="tab active">git.view</button>
+      </div>
+      <div class="top-bar-spacer"></div>
+      <div class="top-bar-actions">
+        <button class="top-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          sync
+        </button>
+        <button class="top-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+          pull
+        </button>
+        <button class="top-btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+          push
+        </button>
+      </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">Workspace</div>
+      <div class="project-info-card">
+        <div class="project-name-display">claude_control_panel</div>
+        <div class="project-branch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span>main</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item" onclick="window.location='01-project-workspace.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span>chat</span>
+        </div>
+        <div class="nav-item" onclick="window.location='02-kanban-tasks.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>tasks</span>
+          <span class="nav-badge">12</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v10"/>
+          </svg>
+          <span>agents</span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>
+          </svg>
+          <span>files</span>
+        </div>
+        <div class="nav-item" onclick="window.location='05-history.html'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <span>history</span>
+        </div>
+        <div class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span>git</span>
+          <span class="nav-badge">5</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="main-header">
+        <span class="main-title">Git Changes</span>
+        <div class="branch-selector">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+          <span class="branch-name">main</span>
+          <span class="branch-arrow">v</span>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <!-- Staged Changes -->
+        <div class="section">
+          <div class="section-header">
+            <div>
+              <span class="section-title">Staged Changes</span>
+              <span class="section-count">(3 files)</span>
+            </div>
+            <div class="section-actions">
+              <button class="section-btn">unstage all</button>
+            </div>
+          </div>
+          <div class="file-list">
+            <div class="file-item selected">
+              <div class="file-checkbox checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <span class="file-status added"></span>
+              <span class="file-path">src/auth/github.ts</span>
+              <span class="file-changes">
+                <span class="file-add">+127</span>
+              </span>
+            </div>
+            <div class="file-item">
+              <div class="file-checkbox checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <span class="file-status modified"></span>
+              <span class="file-path">src/server.ts</span>
+              <span class="file-changes">
+                <span class="file-add">+12</span>
+                <span class="file-del">-3</span>
+              </span>
+            </div>
+            <div class="file-item">
+              <div class="file-checkbox checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <span class="file-status modified"></span>
+              <span class="file-path">package.json</span>
+              <span class="file-changes">
+                <span class="file-add">+2</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unstaged Changes -->
+        <div class="section">
+          <div class="section-header">
+            <div>
+              <span class="section-title">Unstaged Changes</span>
+              <span class="section-count">(2 files)</span>
+            </div>
+            <div class="section-actions">
+              <button class="section-btn">stage all</button>
+            </div>
+          </div>
+          <div class="file-list">
+            <div class="file-item">
+              <div class="file-checkbox"></div>
+              <span class="file-status modified"></span>
+              <span class="file-path">src/config.ts</span>
+              <span class="file-changes">
+                <span class="file-add">+5</span>
+                <span class="file-del">-1</span>
+              </span>
+            </div>
+            <div class="file-item">
+              <div class="file-checkbox"></div>
+              <span class="file-status modified"></span>
+              <span class="file-path">web/src/App.tsx</span>
+              <span class="file-changes">
+                <span class="file-add">+8</span>
+                <span class="file-del">-2</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commit Form -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Commit</span>
+          </div>
+          <div class="commit-form">
+            <textarea class="commit-input" rows="3" placeholder="Commit message...">feat: add github oauth integration
+
+- Added OAuth flow with @octokit/oauth-app
+- Added callback route handler
+- Updated server configuration</textarea>
+            <div class="commit-actions">
+              <button class="commit-btn primary">commit</button>
+              <button class="commit-btn secondary">commit & push</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Sidebar - Diff View -->
+    <aside class="diff-panel">
+      <div class="diff-header">
+        <div class="diff-file">src/auth/github.ts</div>
+        <div class="diff-stats">
+          <span class="diff-add">+127 additions</span>
+        </div>
+      </div>
+      <div class="diff-content">
+        <div class="diff-line add">
+          <span class="diff-line-num">1</span>
+          <span class="diff-line-code">+ import { OAuthApp } from '@octokit/oauth-app'</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">2</span>
+          <span class="diff-line-code">+ import { config } from '../config'</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">3</span>
+          <span class="diff-line-code">+ </span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">4</span>
+          <span class="diff-line-code">+ export const githubOAuth = new OAuthApp({</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">5</span>
+          <span class="diff-line-code">+   clientId: config.GITHUB_CLIENT_ID,</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">6</span>
+          <span class="diff-line-code">+   clientSecret: config.GITHUB_CLIENT_SECRET,</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">7</span>
+          <span class="diff-line-code">+ })</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">8</span>
+          <span class="diff-line-code">+ </span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">9</span>
+          <span class="diff-line-code">+ export async function handleCallback(code: string) {</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">10</span>
+          <span class="diff-line-code">+   const { authentication } = await githubOAuth</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">11</span>
+          <span class="diff-line-code">+     .createToken({ code })</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">12</span>
+          <span class="diff-line-code">+   return authentication</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">13</span>
+          <span class="diff-line-code">+ }</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">14</span>
+          <span class="diff-line-code">+ </span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">15</span>
+          <span class="diff-line-code">+ export function getAuthUrl() {</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">16</span>
+          <span class="diff-line-code">+   return githubOAuth.getWebFlowAuthorizationUrl({</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">17</span>
+          <span class="diff-line-code">+     scopes: ['repo', 'user']</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">18</span>
+          <span class="diff-line-code">+   })</span>
+        </div>
+        <div class="diff-line add">
+          <span class="diff-line-num">19</span>
+          <span class="diff-line-code">+ }</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-bar-left">
+        <span class="status-bar-item">ccp <span class="value">v0.1.0</span></span>
+        <span class="status-bar-item">branch: <span class="value">main</span></span>
+      </div>
+      <div class="status-bar-right">
+        <span class="status-bar-item"><span class="accent">3</span> staged</span>
+        <span class="status-bar-item"><span class="value">2</span> unstaged</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

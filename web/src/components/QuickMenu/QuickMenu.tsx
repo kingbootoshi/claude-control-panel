@@ -1,33 +1,40 @@
 import { useState } from 'react';
-import type { Agent } from '../../types';
-import { CompactIcon, ChevronDownIcon, ChevronRightIcon, GearIcon, PlusIcon } from '../Icons';
+import type { Project, Terminal } from '../../types';
+import { CompactIcon, ChevronDownIcon, ChevronRightIcon, GearIcon, HomeIcon } from '../Icons';
+import { trpc } from '../../trpc';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface QuickMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  agents: Agent[];
-  activeAgentId: string;
-  onAgentSelect: (id: string) => void;
+  terminals: Terminal[];
+  projects: Project[];
+  activeTerminalId: string | null;
+  onTerminalSelect: (id: string) => void;
   sessionSummary: string | null;
   tokenCount: number;
   onCompact: () => void;
   onSettingsClick: () => void;
+  onHomeClick: () => void;
 }
 
 export function QuickMenu({
   isOpen,
   onClose,
-  agents,
-  activeAgentId,
-  onAgentSelect,
+  terminals,
+  projects,
+  activeTerminalId,
+  onTerminalSelect,
   sessionSummary,
   tokenCount,
   onCompact,
   onSettingsClick,
+  onHomeClick,
 }: QuickMenuProps) {
   const [contextExpanded, setContextExpanded] = useState(false);
+  const utils = trpc.useUtils();
+  const ghostQuery = trpc.ghost.get.useQuery(undefined, { refetchInterval: 5000 });
 
   const formatTokens = (count: number) => {
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
@@ -39,9 +46,45 @@ export function QuickMenu({
     onClose();
   };
 
-  const handleAgentSelect = (id: string) => {
-    onAgentSelect(id);
+  const handleTerminalSelect = (id: string) => {
+    onTerminalSelect(id);
     onClose();
+  };
+
+  const handleHomeClick = () => {
+    onHomeClick();
+    onClose();
+  };
+
+  const ghostStartMutation = trpc.ghost.start.useMutation({
+    onSuccess: ({ terminalId }) => {
+      utils.terminals.list.invalidate();
+      handleTerminalSelect(terminalId);
+    },
+  });
+
+  const handleGhostStart = () => {
+    ghostStartMutation.mutate();
+  };
+
+  // Get active (non-dead) terminals, excluding ghost
+  const activeTerminals = terminals.filter(t => t.status !== 'dead' && t.id !== 'ghost');
+
+  const ghostTerminal = terminals.find(t => t.id === 'ghost') ?? null;
+  const ghostExists = Boolean(ghostTerminal) || ghostQuery.data?.exists === true;
+  const ghostStatus = ghostQuery.data && 'status' in ghostQuery.data
+    ? ghostQuery.data.status
+    : ghostTerminal?.status;
+  const isGhostActive = activeTerminalId === 'ghost';
+
+  // Helper to get display name for terminal
+  const getTerminalName = (terminal: Terminal) => {
+    if (terminal.projectId) {
+      const project = projects.find(p => p.id === terminal.projectId);
+      return project?.name ?? terminal.projectId;
+    }
+    if (terminal.id === 'ghost') return 'Ghost';
+    return 'General Chat';
   };
 
   return (
@@ -57,18 +100,33 @@ export function QuickMenu({
         {/* Drag handle */}
         <div className="quick-menu-handle" />
 
-        {/* Agents Section */}
+        {/* Sessions Section */}
         <div className="quick-menu-section">
-          <div className="quick-menu-section-title">AGENTS</div>
-          {agents.map(agent => (
+          <div className="quick-menu-section-title">SESSIONS</div>
+          <button
+            className={`quick-menu-item ${isGhostActive ? 'active' : ''}`}
+            onClick={handleGhostStart}
+            disabled={ghostStartMutation.isPending}
+          >
+            <span className="quick-menu-item-icon"><HomeIcon /></span>
+            <span className="quick-menu-item-label">Ghost</span>
+            {ghostExists ? (
+              <span className={`quick-menu-status ${ghostStatus ?? 'idle'}`} />
+            ) : (
+              <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">
+                Start
+              </span>
+            )}
+          </button>
+          {activeTerminals.map(terminal => (
             <button
-              key={agent.id}
-              className={`quick-menu-item ${agent.id === activeAgentId ? 'active' : ''}`}
-              onClick={() => handleAgentSelect(agent.id)}
+              key={terminal.id}
+              className={`quick-menu-item ${terminal.id === activeTerminalId ? 'active' : ''}`}
+              onClick={() => handleTerminalSelect(terminal.id)}
             >
-              <span className="quick-menu-item-icon">◆</span>
-              <span className="quick-menu-item-label">{agent.name}</span>
-              <span className={`quick-menu-status ${agent.status}`} />
+              <span className="quick-menu-item-icon">{terminal.projectId ? '~' : '>'}</span>
+              <span className="quick-menu-item-label">{getTerminalName(terminal)}</span>
+              <span className={`quick-menu-status ${terminal.status}`} />
             </button>
           ))}
         </div>
@@ -101,15 +159,15 @@ export function QuickMenu({
         <div className="quick-menu-section">
           <div className="quick-menu-section-title">ACTIONS</div>
 
-          <button className="quick-menu-item" onClick={handleCompact}>
+          <button className="quick-menu-item" onClick={handleHomeClick}>
+            <span className="quick-menu-item-icon"><HomeIcon /></span>
+            <span className="quick-menu-item-label">Home</span>
+          </button>
+
+          <button className="quick-menu-item" onClick={handleCompact} disabled={!activeTerminalId}>
             <span className="quick-menu-item-icon"><CompactIcon /></span>
             <span className="quick-menu-item-label">Compact Session</span>
             <span className="quick-menu-item-badge">{formatTokens(tokenCount)}</span>
-          </button>
-
-          <button className="quick-menu-item" disabled>
-            <span className="quick-menu-item-icon"><PlusIcon /></span>
-            <span className="quick-menu-item-label">New Chat</span>
           </button>
 
           <button className="quick-menu-item" onClick={() => { onSettingsClick(); onClose(); }}>

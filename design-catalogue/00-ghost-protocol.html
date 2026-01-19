@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost Protocol - Claude Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --void-deep: #0a0b0d;
+      --void-surface: #0f1012;
+      --void-elevated: #151719;
+      --void-border: #1e2024;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.15);
+      --accent-glow: rgba(245, 158, 11, 0.4);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --red: #ef4444;
+      --text: #e5e5e5;
+      --text-dim: #71717a;
+      --text-muted: #3f3f46;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      background: var(--void-deep);
+      color: var(--text);
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* The app is just two columns. That's it. */
+    .app {
+      display: flex;
+      height: 100dvh;
+    }
+
+    /* =========================================================================
+       LEFT RAIL - Minimal, iconic, almost hidden
+       ========================================================================= */
+    .rail {
+      width: 64px;
+      background: var(--void-surface);
+      border-right: 1px solid var(--void-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      flex-shrink: 0;
+    }
+
+    .rail-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--void-deep);
+      margin-bottom: 32px;
+    }
+
+    .rail-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .rail-item {
+      width: 40px;
+      height: 40px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .rail-item:hover {
+      background: var(--void-elevated);
+      color: var(--text-dim);
+    }
+
+    .rail-item.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .rail-item svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .rail-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .rail-bottom {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rail-status {
+      width: 8px;
+      height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--green);
+      margin: 16px auto 0;
+    }
+
+    /* =========================================================================
+       MAIN AREA - The terminal. Clean. Focused.
+       ========================================================================= */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Top bar - minimal info */
+    .top-bar {
+      height: 48px;
+      background: var(--void-surface);
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+    }
+
+    .project-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .project-selector:hover {
+      border-color: var(--accent);
+    }
+
+    .project-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+    }
+
+    .project-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .project-chevron {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .top-bar-spacer {
+      flex: 1;
+    }
+
+    .top-bar-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-value {
+      color: var(--text);
+    }
+
+    .meta-value.accent {
+      color: var(--accent);
+    }
+
+    /* Terminal output */
+    .terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+
+    .message {
+      margin-bottom: 20px;
+    }
+
+    .message.user {
+      border-left: 3px solid var(--accent);
+      padding-left: 16px;
+      margin-top: 32px;
+    }
+
+    .message.user:first-child {
+      margin-top: 0;
+    }
+
+    .message-content {
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    .message.user .message-content {
+      font-weight: 500;
+    }
+
+    .message-content p {
+      margin-bottom: 8px;
+    }
+
+    .message-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Tool blocks - collapsed by default, expandable */
+    .tool-block {
+      margin: 12px 0;
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--void-surface);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .tool-header:hover {
+      background: var(--void-elevated);
+    }
+
+    .tool-icon {
+      color: var(--accent);
+    }
+
+    .tool-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .tool-status {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--green);
+    }
+
+    .tool-toggle {
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    .tool-details {
+      display: none;
+      padding: 12px;
+      background: var(--void-deep);
+      border-top: 1px solid var(--void-border);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .tool-block.expanded .tool-details {
+      display: block;
+    }
+
+    /* Code blocks */
+    .code-block {
+      margin: 12px 0;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      padding: 8px 12px;
+      background: var(--void-elevated);
+      border-bottom: 1px solid var(--void-border);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .code-body {
+      padding: 12px;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+
+    /* Terminal input */
+    .input-area {
+      padding: 16px 24px 20px;
+      background: var(--void-surface);
+      border-top: 1px solid var(--void-border);
+    }
+
+    .input-container {
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      transition: border-color 0.15s;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--accent);
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .input-prompt {
+      color: var(--accent);
+      font-weight: 600;
+      padding-top: 2px;
+    }
+
+    .input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      resize: none;
+      min-height: 24px;
+      line-height: 1.6;
+    }
+
+    .input-field::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border: none;
+      border-radius: 50%;
+      color: var(--void-deep);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+
+    .send-btn:hover {
+      opacity: 0.9;
+    }
+
+    .send-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* =========================================================================
+       SLIDE-OUT PANELS - Progressive disclosure
+       ========================================================================= */
+
+    /* Overlay when panel is open */
+    .panel-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+
+    .panel-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* The slide-out panel */
+    .slide-panel {
+      position: fixed;
+      top: 0;
+      right: -480px;
+      width: 480px;
+      height: 100%;
+      background: var(--void-surface);
+      border-left: 1px solid var(--void-border);
+      transition: right 0.3s ease;
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide-panel.open {
+      right: 0;
+    }
+
+    .panel-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--void-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .panel-close {
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .panel-close:hover {
+      background: var(--void-elevated);
+      color: var(--text);
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    /* =========================================================================
+       TASKS PANEL - The kanban, but refined
+       ========================================================================= */
+
+    .tasks-section {
+      margin-bottom: 32px;
+    }
+
+    .tasks-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .tasks-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tasks-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    .tasks-indicator.queued { background: var(--text-muted); }
+    .tasks-indicator.active { background: var(--accent); }
+    .tasks-indicator.done { background: var(--green); }
+
+    .tasks-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .tasks-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    .task-card {
+      padding: 14px 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .task-card:hover {
+      border-color: var(--accent);
+    }
+
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .task-tag {
+      padding: 2px 8px;
+      background: var(--void-deep);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    .task-tag.bug {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .task-tag.feature {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .task-run {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: var(--void-deep);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .task-card:hover .task-run {
+      opacity: 1;
+    }
+
+    .task-run svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Add task */
+    .add-task-btn {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      border: 1px dashed var(--void-border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .add-task-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* =========================================================================
+       GIT PANEL
+       ========================================================================= */
+
+    .git-branch {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .branch-icon {
+      color: var(--green);
+    }
+
+    .branch-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .branch-select {
+      margin-left: auto;
+      padding: 4px 8px;
+      background: var(--void-deep);
+      border: 1px solid var(--void-border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .git-section {
+      margin-bottom: 24px;
+    }
+
+    .git-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .git-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .git-section-count {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .git-file {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--void-elevated);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .git-file:hover {
+      background: var(--void-deep);
+    }
+
+    .git-status {
+      font-size: 11px;
+      font-weight: 600;
+      width: 16px;
+    }
+
+    .git-status.m { color: var(--accent); }
+    .git-status.a { color: var(--green); }
+    .git-status.d { color: var(--red); }
+
+    .git-filename {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .git-stats {
+      font-size: 10px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .git-stats .add { color: var(--green); }
+    .git-stats .del { color: var(--red); }
+
+    .commit-form {
+      padding-top: 16px;
+      border-top: 1px solid var(--void-border);
+    }
+
+    .commit-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .commit-input:focus {
+      border-color: var(--accent);
+    }
+
+    .commit-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .commit-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .commit-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .commit-btn.secondary {
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      color: var(--text-dim);
+    }
+
+    .commit-btn.secondary:hover {
+      background: var(--void-deep);
+      color: var(--text);
+    }
+
+    .commit-btn.primary {
+      background: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .commit-btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    /* =========================================================================
+       HISTORY PANEL
+       ========================================================================= */
+
+    .history-item {
+      padding: 14px 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .history-item:hover {
+      border-color: var(--accent);
+    }
+
+    .history-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .history-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .history-agent {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .history-agent-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* =========================================================================
+       PROJECTS PANEL
+       ========================================================================= */
+
+    .project-card {
+      padding: 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .project-card:hover {
+      border-color: var(--accent);
+    }
+
+    .project-card.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .project-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .project-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--void-deep);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .project-card.active .project-icon {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .project-card-info {
+      flex: 1;
+    }
+
+    .project-card-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .project-card-path {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .project-card-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .project-stat {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .project-stat-value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* New project button */
+    .new-project-btn {
+      width: 100%;
+      padding: 14px;
+      background: transparent;
+      border: 1px dashed var(--void-border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .new-project-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* =========================================================================
+       AGENTS PANEL
+       ========================================================================= */
+
+    .agent-card {
+      padding: 16px;
+      background: var(--void-elevated);
+      border: 1px solid var(--void-border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .agent-card:hover {
+      border-color: var(--accent);
+    }
+
+    .agent-card.active {
+      border-color: var(--accent);
+    }
+
+    .agent-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .agent-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .agent-card-info {
+      flex: 1;
+    }
+
+    .agent-card-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .agent-card-type {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .agent-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .agent-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .agent-status-dot.online {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .agent-status-dot.busy {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .agent-status-dot.offline {
+      background: var(--text-muted);
+    }
+
+    .agent-status-label {
+      color: var(--text-dim);
+    }
+
+    .agent-card-stats {
+      display: flex;
+      gap: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--void-border);
+    }
+
+    .agent-stat {
+      font-size: 11px;
+    }
+
+    .agent-stat-value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .agent-stat-label {
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .agent-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .agent-action {
+      flex: 1;
+      padding: 8px;
+      background: var(--void-deep);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .agent-action:hover {
+      background: var(--void-surface);
+      color: var(--text);
+    }
+
+    .agent-action.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--void-deep);
+    }
+
+    .agent-action.primary:hover {
+      opacity: 0.9;
+    }
+
+    /* =========================================================================
+       SCROLLBAR
+       ========================================================================= */
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--void-border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* =========================================================================
+       BACK LINK
+       ========================================================================= */
+
+    .back-link {
+      position: fixed;
+      bottom: 20px;
+      left: 80px;
+      padding: 8px 14px;
+      background: var(--void-surface);
+      border: 1px solid var(--void-border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 11px;
+      z-index: 1000;
+      transition: all 0.15s;
+    }
+
+    .back-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* =========================================================================
+       INTERACTIVE STATES
+       ========================================================================= */
+
+    .panel-trigger {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">Back to Catalogue</a>
+
+  <!-- Overlay for panels -->
+  <div class="panel-overlay" id="overlay"></div>
+
+  <!-- Tasks Panel -->
+  <div class="slide-panel" id="tasks-panel">
+    <div class="panel-header">
+      <span class="panel-title">Tasks</span>
+      <button class="panel-close" onclick="closePanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="tasks-section">
+        <div class="tasks-header">
+          <span class="tasks-indicator queued"></span>
+          <span class="tasks-label">Queued</span>
+          <span class="tasks-count">4</span>
+        </div>
+        <div class="task-card">
+          <div class="task-content">
+            <div class="task-title">Add GitHub OAuth integration</div>
+            <div class="task-meta">
+              <span class="task-tag feature">feature</span>
+            </div>
+          </div>
+          <button class="task-run">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <div class="task-card">
+          <div class="task-content">
+            <div class="task-title">Fix mobile keyboard overlay issue</div>
+            <div class="task-meta">
+              <span class="task-tag bug">bug</span>
+            </div>
+          </div>
+          <button class="task-run">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <div class="task-card">
+          <div class="task-content">
+            <div class="task-title">Implement branch switching UI</div>
+            <div class="task-meta">
+              <span class="task-tag feature">feature</span>
+            </div>
+          </div>
+          <button class="task-run">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <button class="add-task-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Add task
+        </button>
+      </div>
+
+      <div class="tasks-section">
+        <div class="tasks-header">
+          <span class="tasks-indicator active"></span>
+          <span class="tasks-label">Active</span>
+          <span class="tasks-count">2</span>
+        </div>
+        <div class="task-card">
+          <div class="task-content">
+            <div class="task-title">Design system refinement</div>
+            <div class="task-meta">
+              <span class="task-tag">Ghost</span>
+            </div>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-content">
+            <div class="task-title">Add diff viewer component</div>
+            <div class="task-meta">
+              <span class="task-tag feature">feature</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tasks-section">
+        <div class="tasks-header">
+          <span class="tasks-indicator done"></span>
+          <span class="tasks-label">Done</span>
+          <span class="tasks-count">6</span>
+        </div>
+        <div class="task-card" style="opacity: 0.6;">
+          <div class="task-content">
+            <div class="task-title">tRPC migration</div>
+            <div class="task-meta">
+              <span class="task-tag">completed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Git Panel -->
+  <div class="slide-panel" id="git-panel">
+    <div class="panel-header">
+      <span class="panel-title">Source Control</span>
+      <button class="panel-close" onclick="closePanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="git-branch">
+        <svg class="branch-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+        </svg>
+        <span class="branch-name">main</span>
+        <select class="branch-select">
+          <option>main</option>
+          <option>develop</option>
+          <option>feature/kanban</option>
+        </select>
+      </div>
+
+      <div class="git-section">
+        <div class="git-section-header">
+          <span class="git-section-title">Staged Changes</span>
+          <span class="git-section-count">3 files</span>
+        </div>
+        <div class="git-file">
+          <span class="git-status m">M</span>
+          <span class="git-filename">src/App.tsx</span>
+          <span class="git-stats"><span class="add">+45</span> <span class="del">-12</span></span>
+        </div>
+        <div class="git-file">
+          <span class="git-status m">M</span>
+          <span class="git-filename">src/index.css</span>
+          <span class="git-stats"><span class="add">+128</span> <span class="del">-3</span></span>
+        </div>
+        <div class="git-file">
+          <span class="git-status a">A</span>
+          <span class="git-filename">src/components/Kanban.tsx</span>
+          <span class="git-stats"><span class="add">+234</span></span>
+        </div>
+      </div>
+
+      <div class="git-section">
+        <div class="git-section-header">
+          <span class="git-section-title">Unstaged Changes</span>
+          <span class="git-section-count">2 files</span>
+        </div>
+        <div class="git-file">
+          <span class="git-status m">M</span>
+          <span class="git-filename">src/server.ts</span>
+          <span class="git-stats"><span class="add">+8</span> <span class="del">-2</span></span>
+        </div>
+        <div class="git-file">
+          <span class="git-status m">M</span>
+          <span class="git-filename">web/vite.config.ts</span>
+          <span class="git-stats"><span class="add">+3</span> <span class="del">-1</span></span>
+        </div>
+      </div>
+
+      <div class="commit-form">
+        <input type="text" class="commit-input" placeholder="Commit message...">
+        <div class="commit-actions">
+          <button class="commit-btn secondary">Stage All</button>
+          <button class="commit-btn primary">Commit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="slide-panel" id="history-panel">
+    <div class="panel-header">
+      <span class="panel-title">History</span>
+      <button class="panel-close" onclick="closePanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="history-item">
+        <div class="history-title">Frontend design exploration</div>
+        <div class="history-meta">
+          <span class="history-agent">
+            <span class="history-agent-dot"></span>
+            Ghost
+          </span>
+          <span>Today, 2:32 PM</span>
+        </div>
+      </div>
+      <div class="history-item">
+        <div class="history-title">Mobile UX improvements</div>
+        <div class="history-meta">
+          <span class="history-agent">
+            <span class="history-agent-dot"></span>
+            Ghost
+          </span>
+          <span>Today, 11:15 AM</span>
+        </div>
+      </div>
+      <div class="history-item">
+        <div class="history-title">tRPC migration</div>
+        <div class="history-meta">
+          <span class="history-agent">
+            <span class="history-agent-dot"></span>
+            Builder
+          </span>
+          <span>Yesterday</span>
+        </div>
+      </div>
+      <div class="history-item">
+        <div class="history-title">Auth implementation</div>
+        <div class="history-meta">
+          <span class="history-agent">
+            <span class="history-agent-dot"></span>
+            Ghost
+          </span>
+          <span>2 days ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects Panel -->
+  <div class="slide-panel" id="projects-panel">
+    <div class="panel-header">
+      <span class="panel-title">Projects</span>
+      <button class="panel-close" onclick="closePanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="project-card active">
+        <div class="project-card-header">
+          <div class="project-icon">CP</div>
+          <div class="project-card-info">
+            <div class="project-card-name">claude_control_panel</div>
+            <div class="project-card-path">~/Dev/claude_control_panel</div>
+          </div>
+        </div>
+        <div class="project-card-stats">
+          <span class="project-stat"><span class="project-stat-value">12</span> tasks</span>
+          <span class="project-stat"><span class="project-stat-value">main</span> branch</span>
+          <span class="project-stat"><span class="project-stat-value">5</span> changes</span>
+        </div>
+      </div>
+      <div class="project-card">
+        <div class="project-card-header">
+          <div class="project-icon">GW</div>
+          <div class="project-card-info">
+            <div class="project-card-name">ghost-workspace</div>
+            <div class="project-card-path">~/.ghostworkspace</div>
+          </div>
+        </div>
+        <div class="project-card-stats">
+          <span class="project-stat"><span class="project-stat-value">3</span> tasks</span>
+          <span class="project-stat"><span class="project-stat-value">develop</span> branch</span>
+        </div>
+      </div>
+      <div class="project-card">
+        <div class="project-card-header">
+          <div class="project-icon">VS</div>
+          <div class="project-card-info">
+            <div class="project-card-name">video-stitch</div>
+            <div class="project-card-path">~/scripts</div>
+          </div>
+        </div>
+        <div class="project-card-stats">
+          <span class="project-stat"><span class="project-stat-value">0</span> tasks</span>
+          <span class="project-stat"><span class="project-stat-value">main</span> branch</span>
+        </div>
+      </div>
+      <button class="new-project-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        New project
+      </button>
+    </div>
+  </div>
+
+  <!-- Agents Panel -->
+  <div class="slide-panel" id="agents-panel">
+    <div class="panel-header">
+      <span class="panel-title">Agents</span>
+      <button class="panel-close" onclick="closePanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="agent-card active">
+        <div class="agent-card-header">
+          <div class="agent-avatar">GH</div>
+          <div class="agent-card-info">
+            <div class="agent-card-name">Ghost</div>
+            <div class="agent-card-type">Claude Code</div>
+          </div>
+          <div class="agent-status">
+            <span class="agent-status-dot online"></span>
+            <span class="agent-status-label">Online</span>
+          </div>
+        </div>
+        <div class="agent-card-stats">
+          <span class="agent-stat"><span class="agent-stat-value">45.2k</span><span class="agent-stat-label">tokens</span></span>
+          <span class="agent-stat"><span class="agent-stat-value">12</span><span class="agent-stat-label">messages</span></span>
+          <span class="agent-stat"><span class="agent-stat-value">8</span><span class="agent-stat-label">tools</span></span>
+        </div>
+        <div class="agent-actions">
+          <button class="agent-action">Resume</button>
+          <button class="agent-action">Compact</button>
+          <button class="agent-action primary">Open</button>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-header">
+          <div class="agent-avatar">BL</div>
+          <div class="agent-card-info">
+            <div class="agent-card-name">Builder</div>
+            <div class="agent-card-type">Codex</div>
+          </div>
+          <div class="agent-status">
+            <span class="agent-status-dot busy"></span>
+            <span class="agent-status-label">Working</span>
+          </div>
+        </div>
+        <div class="agent-card-stats">
+          <span class="agent-stat"><span class="agent-stat-value">28.1k</span><span class="agent-stat-label">tokens</span></span>
+          <span class="agent-stat"><span class="agent-stat-value">6</span><span class="agent-stat-label">messages</span></span>
+        </div>
+        <div class="agent-actions">
+          <button class="agent-action">Resume</button>
+          <button class="agent-action primary">Open</button>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-header">
+          <div class="agent-avatar">RV</div>
+          <div class="agent-card-info">
+            <div class="agent-card-name">Reviewer</div>
+            <div class="agent-card-type">Claude Code</div>
+          </div>
+          <div class="agent-status">
+            <span class="agent-status-dot offline"></span>
+            <span class="agent-status-label">Offline</span>
+          </div>
+        </div>
+        <div class="agent-actions">
+          <button class="agent-action primary">Start</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div class="app">
+    <!-- Minimal left rail -->
+    <nav class="rail">
+      <div class="rail-logo">CCP</div>
+      <div class="rail-nav">
+        <button class="rail-item active" title="Terminal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+        </button>
+        <button class="rail-item panel-trigger" onclick="openPanel('projects-panel')" title="Projects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+        </button>
+        <button class="rail-item panel-trigger" onclick="openPanel('agents-panel')" title="Agents">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 012-2h6a2 2 0 012 2v1.662"/>
+          </svg>
+          <span class="rail-badge"></span>
+        </button>
+        <button class="rail-item panel-trigger" onclick="openPanel('tasks-panel')" title="Tasks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+          <span class="rail-badge"></span>
+        </button>
+        <button class="rail-item panel-trigger" onclick="openPanel('git-panel')" title="Git">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 003 3h6"/>
+          </svg>
+        </button>
+        <button class="rail-item panel-trigger" onclick="openPanel('history-panel')" title="History">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+      </div>
+      <div class="rail-bottom">
+        <button class="rail-item" title="Files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </button>
+        <button class="rail-item" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="rail-status"></div>
+    </nav>
+
+    <!-- Main content area -->
+    <main class="main">
+      <div class="top-bar">
+        <div class="project-selector panel-trigger" onclick="openPanel('projects-panel')">
+          <span class="project-dot"></span>
+          <span class="project-name">claude_control_panel</span>
+          <span class="project-chevron">&#9662;</span>
+        </div>
+        <div class="top-bar-spacer"></div>
+        <div class="top-bar-meta">
+          <div class="meta-item">
+            <span>Agent:</span>
+            <span class="meta-value accent">Ghost</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-value">45.2k</span>
+            <span>tokens</span>
+          </div>
+          <div class="meta-item">
+            <span>Model:</span>
+            <span class="meta-value">Opus 4.5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="message user">
+          <div class="message-content">
+            <p>Create a refined design for the control panel. The current designs are too cluttered - I want something that feels exclusive, futuristic, and psychologically confident. Keep the void black + amber aesthetic.</p>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="message-content">
+            <p>I understand. The previous designs tried to show everything at once - that's the opposite of what you need.</p>
+
+            <p>Your current app already has the right foundation. The void black (#0a0b0d), the amber accent (#f59e0b), the monospace typography - it's refined. The problem is adding features without adding noise.</p>
+
+            <div class="tool-block expanded">
+              <div class="tool-header">
+                <svg class="tool-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="tool-name">Task: Explore codebase</span>
+                <span class="tool-status">Complete</span>
+                <span class="tool-toggle">&#9650;</span>
+              </div>
+              <div class="tool-details">
+                Found: React + tRPC architecture, Tailwind CSS, void theme with amber accents. Current layout is clean three-column with sidebar, terminal, and right context panel.
+              </div>
+            </div>
+
+            <p>Here's the design philosophy:</p>
+
+            <div class="code-block">
+              <div class="code-header">GHOST-PROTOCOL.md</div>
+              <div class="code-body">
+1. PROGRESSIVE DISCLOSURE
+   - The terminal is primary. Everything else slides in.
+   - No permanent sidebars for secondary features.
+   - You access what you need, then it disappears.
+
+2. PSYCHOLOGICAL CONFIDENCE
+   - The interface doesn't explain itself.
+   - No labels on the rail icons - they're obvious.
+   - Status is shown, not announced.
+
+3. SPATIAL HIERARCHY
+   - Left rail: 64px, just icons
+   - Main area: terminal + input
+   - Everything else: slide-out panels
+
+4. COLOR DISCIPLINE
+   - Void black as base
+   - Amber only for: active states, accents, prompts
+   - Green only for: online/success
+   - No other colors unless error
+              </div>
+            </div>
+
+            <p>The result: an interface that feels like you're accessing something you shouldn't have access to. Every feature exists, but nothing competes for attention.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-container">
+          <div class="input-row">
+            <span class="input-prompt">$</span>
+            <textarea class="input-field" placeholder="Message Ghost..." rows="1"></textarea>
+            <button class="send-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function openPanel(panelId) {
+      // Close any open panels first
+      document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open'));
+
+      // Open the requested panel
+      document.getElementById(panelId).classList.add('open');
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function closePanel() {
+      document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open'));
+      document.getElementById('overlay').classList.remove('open');
+    }
+
+    // Close panel when clicking overlay
+    document.getElementById('overlay').addEventListener('click', closePanel);
+
+    // Toggle tool block expansion
+    document.querySelectorAll('.tool-header').forEach(header => {
+      header.addEventListener('click', () => {
+        header.parentElement.classList.toggle('expanded');
+        const toggle = header.querySelector('.tool-toggle');
+        toggle.textContent = header.parentElement.classList.contains('expanded') ? '▲' : '▼';
+      });
+    });
+
+    // Auto-resize textarea
+    const textarea = document.querySelector('.input-field');
+    textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    });
+  </script>
+</body>
+</html>

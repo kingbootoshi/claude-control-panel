@@ -9,13 +9,24 @@ import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/router";
 import { logger } from "./utils/logger";
 import type { TerminalManagerLike } from "./types";
+import type { TmuxManager } from "./tmux-manager";
+import type { CodexManager } from "./codex-manager";
+import type { AgentWatcher } from "./agent-watcher";
 
 const log = logger.server;
 
-export function createHttpServer(terminalManager: TerminalManagerLike): { server: HttpServer; wssHandler: ReturnType<typeof applyWSSHandler> } {
+export interface ServerOptions {
+  terminalManager: TerminalManagerLike;
+  tmuxManager: TmuxManager;
+  codexManager: CodexManager;
+  agentWatcher: AgentWatcher;
+}
+
+export function createHttpServer(options: ServerOptions): { server: HttpServer; wssHandler: ReturnType<typeof applyWSSHandler> } {
+  const { terminalManager, tmuxManager, codexManager, agentWatcher } = options;
   const app = express();
   const server = createServer(app);
-  const { createHttpContext, createWsContext } = createContextFactory(terminalManager);
+  const { createHttpContext, createWsContext } = createContextFactory({ terminalManager, tmuxManager, codexManager, agentWatcher });
   const uploadLimitMb = Math.ceil(config.uploadMaxBytes / (1024 * 1024));
 
   app.use(express.json({ limit: `${uploadLimitMb}mb` }));

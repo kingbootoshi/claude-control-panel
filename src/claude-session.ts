@@ -5,7 +5,15 @@ import path from "path";
 import { config } from "./config";
 import { MessageQueue } from "./message-queue";
 import { logger } from "./utils/logger";
-import type { ClaudeSessionOptions, ContentBlock, MessageContent, StreamEvent } from "./types";
+import type {
+  ClaudeSessionOptions,
+  CompactionRecord,
+  ContentBlock,
+  MessageContent,
+  SessionMetrics,
+  SmartCompactConfig,
+  StreamEvent,
+} from "./types";
 
 const log = logger.session;
 
@@ -22,11 +30,30 @@ export class ClaudeSession extends EventEmitter {
   private toolUseNameMap: Map<string, string> = new Map();
   private currentThinkingId: string | null = null;
   private currentThinkingBlockIndex: number = -1;
+  // Smart Compaction state
+  private metrics: SessionMetrics = {
+    currentContextTokens: 0,
+    totalInputTokensSpent: 0,
+    totalOutputTokens: 0,
+    totalCostUsd: 0,
+    turnCount: 0,
+    compactionCount: 0,
+    lastCompactedAt: null,
+    compactionHistory: [],
+  };
+  private smartCompactConfig: SmartCompactConfig;
+  private isCompacting: boolean = false;
 
-  constructor(options: ClaudeSessionOptions) {
+  constructor(options: ClaudeSessionOptions, smartCompactConfig?: SmartCompactConfig) {
     super();
     this.messageQueue = new MessageQueue();
     this.options = options;
+    this.smartCompactConfig = smartCompactConfig || {
+      enabled: true,
+      thresholdTokens: 160000,
+      warningThresholdTokens: 140000,
+      customInstructions: null,
+    };
   }
 
   async start(): Promise<void> {
@@ -48,6 +75,34 @@ export class ClaudeSession extends EventEmitter {
 
   getSessionId(): string | null {
     return this.sessionId;
+  }
+
+  getMetrics(): SessionMetrics {
+    return { ...this.metrics };
+  }
+
+  async compactNow(customInstructions?: string | null): Promise<void> {
+    if (this.isCompacting) return;
+
+    this.isCompacting = true;
+    try {
+      const instructions = customInstructions ||
+        this.smartCompactConfig.customInstructions ||
+        this.getDefaultCompactInstructions();
+      await this.sendMessage(`/compact ${instructions}`);
+    } finally {
+      this.isCompacting = false;
+    }
+  }
+
+  private async checkAndTriggerCompaction(): Promise<void> {
+    if (!this.smartCompactConfig.enabled) return;
+    if (this.metrics.currentContextTokens < this.smartCompactConfig.thresholdTokens) return;
+    await this.compactNow();
+  }
+
+  private getDefaultCompactInstructions(): string {
+    return "Preserve: 1) Immediate next action with file paths 2) Settled decisions with rationale 3) Dead ends (what failed and why) 4) Trust anchors (verified working) 5) Task queue (remaining work) 6) User preferences (permanent ones marked)";
   }
 
   private async *createMessageGenerator(): AsyncGenerator<SDKUserMessage> {
@@ -106,7 +161,26 @@ export class ClaudeSession extends EventEmitter {
           } as StreamEvent);
           log.info({ sessionId: message.session_id, tools: message.tools }, "Session initialized");
         } else if (message.subtype === "compact_boundary") {
-          const preTokens = (message as { compact_metadata?: { pre_tokens?: number } }).compact_metadata?.pre_tokens;
+          const compactMetadata = (message as {
+            compact_metadata?: { pre_tokens?: number; trigger?: "auto" | "manual" };
+          }).compact_metadata;
+          const preTokens = compactMetadata?.pre_tokens ?? this.metrics.currentContextTokens;
+          const trigger = compactMetadata?.trigger ?? "manual";
+          const compactedAt = new Date().toISOString();
+          const instructionsUsed = trigger === "auto"
+            ? this.smartCompactConfig.customInstructions || this.getDefaultCompactInstructions()
+            : "unknown";
+          const record: CompactionRecord = {
+            compactedAt,
+            preTokens,
+            postTokens: this.metrics.currentContextTokens,
+            trigger,
+            instructionsUsed,
+          };
+
+          this.metrics.compactionCount += 1;
+          this.metrics.lastCompactedAt = compactedAt;
+          this.metrics.compactionHistory.push(record);
           this.emit("event", {
             type: "compact_complete",
             preTokens,
@@ -252,11 +326,13 @@ export class ClaudeSession extends EventEmitter {
             input_tokens?: number;
             cache_creation_input_tokens?: number;
             cache_read_input_tokens?: number;
+            output_tokens?: number;
           };
         }).usage;
         const totalInputTokensSpent = (usage?.input_tokens || 0) +
           (usage?.cache_creation_input_tokens || 0) +
           (usage?.cache_read_input_tokens || 0);
+        const totalOutputTokens = usage?.output_tokens || 0;
         const currentContextTokens = (this.lastStepUsage?.inputTokens || 0) +
           (this.lastStepUsage?.cacheCreationTokens || 0) +
           (this.lastStepUsage?.cacheReadTokens || 0);
@@ -268,6 +344,12 @@ export class ClaudeSession extends EventEmitter {
           currentContextTokens,
           totalInputTokensSpent,
         } as StreamEvent);
+        this.metrics.currentContextTokens = currentContextTokens;
+        this.metrics.totalInputTokensSpent += totalInputTokensSpent;
+        this.metrics.totalOutputTokens += totalOutputTokens;
+        this.metrics.turnCount += 1;
+        this.metrics.totalCostUsd += message.total_cost_usd;
+        await this.checkAndTriggerCompaction();
         log.info({ turns: message.num_turns, cost: message.total_cost_usd }, "Query completed");
         // Reset message tracking for next turn
         this.currentMessageId = null;
